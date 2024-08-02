@@ -1,4 +1,4 @@
-module github.com/ProlificLabs/captrivia-be
+module github.com/dylanconnolly/captrivia-be
 
 go 1.22.1
 

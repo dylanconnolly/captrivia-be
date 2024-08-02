@@ -5,10 +5,22 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/google/uuid"
 )
 
-var upgrader = websocket.Upgrader{}
+var (
+	games = []struct {
+		ID            uuid.UUID `json:"id"`
+		Name          string    `json:"name"`
+		PlayerCount   int       `json:"player_count"`
+		QuestionCount int       `json:"question_count"`
+		State         string    `json:"state"`
+	}{
+		{uuid.New(), "Game 1", 3, 5, "countdown"},
+		{uuid.New(), "John's Game", 1, 3, "waiting"},
+		{uuid.New(), "Unnamed Game", 0, 6, "ended"},
+	}
+)
 
 type GameServer struct {
 	cm *ClientManager
@@ -22,17 +34,6 @@ func NewGameServer(cm *ClientManager) *GameServer {
 func (g *GameServer) Games(w http.ResponseWriter, r *http.Request) {
 	// TODO: Fix this data so it is not hardcoded, and is the right shape
 	// that the frontend expects
-	games := []struct {
-		ID            string `json:"id"`
-		Name          string `json:"name"`
-		PlayerCount   int    `json:"player_count"`
-		QuestionCount int    `json:"question_count"`
-		State         string `json:"state"`
-	}{
-		{"1", "Game 1", 3, 5, "countdown"},
-		{"asd1kh23", "John's Game", 1, 3, "waiting"},
-		{"1230914", "Unnamed Game", 0, 6, "ended"},
-	}
 	writeJSON(w, http.StatusOK, games)
 }
 

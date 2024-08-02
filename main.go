@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/ProlificLabs/captrivia-be/server"
+	"github.com/dylanconnolly/captrivia-be/server"
 )
 
 var (
