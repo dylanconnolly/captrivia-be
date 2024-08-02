@@ -43,12 +43,8 @@ func (g *GameServer) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := newClient(name, g.cm, w, r)
-	if err != nil {
-		return
-	}
-
-	c.handleWebsockets()
+	c := newClient(name, g.cm)
+	c.serveWebsocket(w, r)
 }
 
 func (g *GameServer) Leaderboard(w http.ResponseWriter, r *http.Request) {
