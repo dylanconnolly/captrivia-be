@@ -1,0 +1,217 @@
+[
+  {
+    "id": "4",
+    "questionText": "What does 'dilution' refer to in the context of equity?",
+    "options": [
+      "The process of adding more debt to the company's balance sheet",
+      "The reduction in existing shareholders' ownership percentage due to new shares being issued",
+      "The decrease in the company's overall value",
+      "The liquidation of assets to cover outstanding debts"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "5",
+    "questionText": "What type of equity security gives the holder the right to convert into a certain number of shares?",
+    "options": [
+      "Convertible note",
+      "Common stock",
+      "Preferred stock",
+      "Warrant"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "6",
+    "questionText": "Who typically uses a cap table?",
+    "options": [
+      "Publicly traded companies only",
+      "Startups and private companies",
+      "Non-profit organizations",
+      "Government entities"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "7",
+    "questionText": "What does 'pre-money valuation' refer to?",
+    "options": [
+      "The value of a company's assets before depreciation",
+      "The value of a company's equity after a financing round",
+      "The value of a company before new funding is added",
+      "The valuation of a company before it becomes profitable"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "8",
+    "questionText": "Which term refers to the original price paid for shares when they were first purchased from the company?",
+    "options": ["Market price", "Par value", "Strike price", "Exercise price"],
+    "correctIndex": 1
+  },
+  {
+    "id": "9",
+    "questionText": "In a cap table, what are 'fully diluted shares'?",
+    "options": [
+      "Shares that have been split multiple times",
+      "The total number of shares that would be outstanding if all possible shares were issued",
+      "Shares that have been completely paid off",
+      "Shares that are held by the public after an IPO"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "10",
+    "questionText": "What do 'RSUs' stand for?",
+    "options": [
+      "Rapid Stock Units",
+      "Regulatory Share Units",
+      "Restricted Stock Units",
+      "Realized Share Units"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "11",
+    "questionText": "What is an 'option pool'?",
+    "options": [
+      "A fund of allocated shares from which options can be granted to employees",
+      "The collective investment in stock options by shareholders",
+      "The liquidity of stock options within a private company",
+      "An aggregate of unvested shares held by former employees"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "12",
+    "questionText": "What is the primary difference between a 'term sheet' and a 'cap table'?",
+    "options": [
+      "A term sheet outlines the terms of a business deal, while a cap table displays ownership stakes",
+      "A cap table is a legal contract, while a term sheet is informal",
+      "A term sheet is only used in mergers and acquisitions, while a cap table is not",
+      "There is no significant difference; both documents serve the same purpose"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "13",
+    "questionText": "When founders allocate equity to investors, what process do they typically follow?",
+    "options": [
+      "Auction system",
+      "Pro-rata distribution",
+      "Negotiation based on valuation",
+      "Equal distribution to all interested parties"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "14",
+    "questionText": "What is the primary goal of a 'share repurchase agreement'?",
+    "options": [
+      "To unify shareholder interests",
+      "To replenish the option pool",
+      "To allow the company to buy back shares from shareholders",
+      "To distribute dividends among shareholders"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "15",
+    "questionText": "In what scenario might a 'stock option' be most beneficial to an employee?",
+    "options": [
+      "When the company's stock price is stagnant",
+      "When the company's stock price has significantly decreased",
+      "When the company's stock price is expected to rise in the future",
+      "When the company's stock is not publicly traded"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "16",
+    "questionText": "What does 'vesting' refer to in the context of stock options?",
+    "options": [
+      "The process of converting options into shares",
+      "The period when the company secures its shares against dilution",
+      "The time period during which option holders earn the right to exercise their options",
+      "The devaluation of shares over time"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "17",
+    "questionText": "What is the purpose of an '83(b) election' in the United States?",
+    "options": [
+      "To elect a new board of directors",
+      "To decide on dividend payments",
+      "To allow taxpayers to accelerate the timing of taxation on restricted stock",
+      "To vote on company mergers and acquisitions"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "18",
+    "questionText": "How does 'preferred stock' differ from 'common stock'?",
+    "options": [
+      "Preferred stock typically comes with voting rights, whereas common stock does not",
+      "Preferred stock often has pre-defined dividends, while common stock dividends vary",
+      "Common stock can be converted into bonds, but preferred stock cannot",
+      "Common stock is only available to company employees, while preferred stock is for investors"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "19",
+    "questionText": "In the event of a company liquidation, which type of equity holders get paid first?",
+    "options": [
+      "Common stockholders",
+      "Preferred stockholders",
+      "Convertible note holders",
+      "Option holders"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "20",
+    "questionText": "What does 'pro-rata rights' mean for an investor?",
+    "options": [
+      "The right to sell shares before anyone else during an IPO",
+      "The right to receive equal dividends as all other shareholders",
+      "The right to maintain ownership percentage during new share issuances",
+      "The right to be the first to purchase new issues of stock before the general public"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "21",
+    "questionText": "What is typically the main purpose of 'angel investors' in a startup's cap table?",
+    "options": [
+      "To offer managerial assistance",
+      "To provide search capital",
+      "To invest early-stage capital in exchange for equity",
+      "To lend money at high-interest rates"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "22",
+    "questionText": "In equity management, what is a 'safe' (Simple Agreement for Future Equity)?",
+    "options": [
+      "An agreement that sets the terms for stock options for employees",
+      "A convertible instrument which is not a debt and provides rights to future equity",
+      "The minimum guaranteed return for investors",
+      "A government-regulated retirement savings plan"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "23",
+    "questionText": "Why might a company perform a 'stock split'?",
+    "options": [
+      "To reduce the total number of shares available",
+      "To lower the share price by increasing the number of shares available",
+      "To merge with another company",
+      "To switch stock markets"
+    ],
+    "correctIndex": 1
+  }
+]
