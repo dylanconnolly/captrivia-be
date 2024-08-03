@@ -1,10 +1,11 @@
 package server
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/google/uuid"
+)
+
+var (
+	games []*Game = []*Game{{uuid.New(), "Game 1", []string{"Player 1", "Player 2"}, make(map[string]bool), 3, 5, "countdown"}, {uuid.New(), "John's Game", []string{}, make(map[string]bool), 3, 5, "waiting"}}
 )
 
 const (
@@ -15,6 +16,27 @@ const (
 )
 
 type Game struct {
+	ID            uuid.UUID       `json:"id"`
+	Name          string          `json:"name"`
+	Players       []string        `json:"players"`
+	PlayersReady  map[string]bool `json:"players_ready"`
+	PlayerCount   int             `json:"player_count"`
+	QuestionCount int             `json:"question_count"`
+	State         string          `json:"state"`
+}
+
+func newGame(name string, qCount int) Game {
+	return Game{
+		ID:            uuid.New(),
+		Name:          name,
+		PlayersReady:  make(map[string]bool),
+		PlayerCount:   0,
+		QuestionCount: qCount,
+		State:         gameStateWaiting,
+	}
+}
+
+type HttpGameResp struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
 	PlayerCount   int       `json:"player_count"`
@@ -22,23 +44,12 @@ type Game struct {
 	State         string    `json:"state"`
 }
 
-type GameCreatePayload struct {
-	Name          string `json:"name"`
-	QuestionCount int    `json:"question_count"`
-}
-
-func createGame(payload json.RawMessage) (*Game, error) {
-	var p GameCreatePayload
-	err := json.Unmarshal(payload, &p)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling create command payload: %+v. Error: %s", payload, err)
+func (g *Game) httpResp() HttpGameResp {
+	return HttpGameResp{
+		g.ID,
+		g.Name,
+		g.PlayerCount,
+		g.QuestionCount,
+		g.State,
 	}
-
-	return &Game{
-		ID:            uuid.New(),
-		Name:          p.Name,
-		PlayerCount:   0,
-		QuestionCount: p.QuestionCount,
-		State:         gameStateWaiting,
-	}, nil
 }

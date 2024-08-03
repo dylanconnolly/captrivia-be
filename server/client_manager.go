@@ -1,7 +1,7 @@
 package server
 
 // ClientManager tracks all active websocket clients and broadcasts
-// messages to each client
+// messages to each client.
 type ClientManager struct {
 	broadcast  chan []byte
 	clients    map[*Client]bool

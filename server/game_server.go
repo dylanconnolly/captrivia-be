@@ -4,22 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"github.com/google/uuid"
-)
-
-var (
-	games = []struct {
-		ID            uuid.UUID `json:"id"`
-		Name          string    `json:"name"`
-		PlayerCount   int       `json:"player_count"`
-		QuestionCount int       `json:"question_count"`
-		State         string    `json:"state"`
-	}{
-		{uuid.New(), "Game 1", 3, 5, "countdown"},
-		{uuid.New(), "John's Game", 1, 3, "waiting"},
-		{uuid.New(), "Unnamed Game", 0, 6, "ended"},
-	}
 )
 
 type GameServer struct {
@@ -34,7 +18,11 @@ func NewGameServer(cm *ClientManager) *GameServer {
 func (g *GameServer) Games(w http.ResponseWriter, r *http.Request) {
 	// TODO: Fix this data so it is not hardcoded, and is the right shape
 	// that the frontend expects
-	writeJSON(w, http.StatusOK, games)
+	var httpGames []HttpGameResp
+	for _, g := range games {
+		httpGames = append(httpGames, g.httpResp())
+	}
+	writeJSON(w, http.StatusOK, httpGames)
 }
 
 func (g *GameServer) Connect(w http.ResponseWriter, r *http.Request) {

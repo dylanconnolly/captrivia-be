@@ -36,17 +36,16 @@ type PlayerCommandJoin struct {
 }
 
 func (c PlayerCommand) handleCreateGameCommand() ([]byte, error) {
-	game, err := createGame(c.Payload)
+	var payload PlayerCommandCreate
+	err := json.Unmarshal(c.Payload, &payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling create command payload: %+v. Error: %s", payload, err)
 	}
+	game := newGame(payload.Name, payload.QuestionCount)
+	games = append(games, &game)
 
-	ge := &GameEvent{
-		ID:      game.ID,
-		Payload: &c.Payload,
-		Type:    GameEventTypeCreate,
-	}
-
+	// broadcast event
+	ge := newGameEventCreate(game)
 	resp, err := json.Marshal(ge)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling create game response: %s\n Command: %+v, Event: %+v", err, c, ge)
@@ -55,23 +54,13 @@ func (c PlayerCommand) handleCreateGameCommand() ([]byte, error) {
 }
 
 func (c PlayerCommand) handleJoinGameCommand(playerName string) ([]byte, error) {
-	var join PlayerCommandJoin
-	err := json.Unmarshal(c.Payload, &join)
+	var payload PlayerCommandJoin
+	err := json.Unmarshal(c.Payload, &payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling create command payload: %+v. Error: %s", payload, err)
 	}
 
-	player := GameEventPlayerJoin{playerName}
-	payload, err := structToEventPayload(player)
-	if err != nil {
-		return nil, fmt.Errorf("error converting struct to payload: %s", player)
-	}
-
-	ge := &GameEvent{
-		ID:      join.GameID,
-		Payload: payload,
-		Type:    GameEventTypePlayerJoin,
-	}
+	ge := newGameEventPlayerEnter(payload.GameID, playerName)
 
 	resp, err := json.Marshal(ge)
 	if err != nil {
