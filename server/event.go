@@ -11,9 +11,17 @@ import (
 type GameEventType string
 
 const (
-	GameEventTypeCreate      = "game_create"
-	GameEventTypePlayerJoin  = "game_player_join"
-	GameEventTypePlayerEnter = "game_player_enter"
+	GameEventTypeCreate          = "game_create"
+	GameEventTypeStart           = "game_start"
+	GameEventTypeEnd             = "game_end"
+	GameEventTypeCountdown       = "game_countdown"
+	GameEventTypeQuestion        = "game_question"
+	GameEventTypePlayerEnter     = "game_player_enter"
+	GameEventTypePlayerJoin      = "game_player_join"
+	GameEventTypePlayerReady     = "game_player_ready"
+	GameEventTypePlayerLeave     = "game_player_leave"
+	GameEventTypePlayerCorrect   = "game_player_correct"
+	GameEventTypePlayerIncorrect = "game_player_incorrect"
 )
 
 type EventPayload interface {
@@ -41,11 +49,12 @@ func (e GameEventCreate) Raw() *json.RawMessage {
 	return &raw
 }
 
-type GameEventPlayerJoin struct {
+// Used for all the player actions in a game lobby (Join, Ready, Leave)
+type GameEventPlayerLobbyAction struct {
 	Player string `json:"player"`
 }
 
-func (e GameEventPlayerJoin) Raw() *json.RawMessage {
+func (e GameEventPlayerLobbyAction) Raw() *json.RawMessage {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return nil
@@ -72,50 +81,66 @@ func (e GameEventPlayerEnter) Raw() *json.RawMessage {
 
 func newGameEventCreate(g Game) *GameEvent {
 	payload := GameEventCreate{
-		g.Name,
-		g.QuestionCount,
+		Name:          g.Name,
+		QuestionCount: g.QuestionCount,
 	}
 	ge := &GameEvent{
-		g.ID,
-		payload.Raw(),
-		GameEventTypeCreate,
+		ID:      g.ID,
+		Payload: payload.Raw(),
+		Type:    GameEventTypeCreate,
 	}
 
 	return ge
 }
 
 func newGameEventPlayerEnter(gameID uuid.UUID, player string) *GameEvent {
+	// TODO: handle updating game in state once data store is decided
 	i := slices.IndexFunc(games, func(g *Game) bool { return g.ID == gameID })
 	game := games[i]
 	log.Printf("game: %+v", game)
 	game.Players = append(game.Players, player)
 	game.PlayerCount = game.PlayerCount + 1
 	game.PlayersReady[player] = false
+
 	payload := GameEventPlayerEnter{
-		player,
-		game.Players,
-		game.PlayersReady,
-		game.QuestionCount,
+		Name:          player,
+		Players:       game.Players,
+		PlayersReady:  game.PlayersReady,
+		QuestionCount: game.QuestionCount,
 	}
 
 	ge := &GameEvent{
-		gameID,
-		payload.Raw(),
-		GameEventTypePlayerEnter,
+		ID:      gameID,
+		Payload: payload.Raw(),
+		Type:    GameEventTypePlayerEnter,
 	}
 
 	return ge
 }
 
 func newGameEventPlayerJoin(gameID uuid.UUID, player string) *GameEvent {
-	payload := GameEventPlayerJoin{
-		player,
+	payload := GameEventPlayerLobbyAction{
+		Player: player,
 	}
 
 	ge := &GameEvent{
-		gameID,
-		payload.Raw(),
-		GameEventTypePlayerJoin,
+		ID:      gameID,
+		Payload: payload.Raw(),
+		Type:    GameEventTypePlayerJoin,
+	}
+
+	return ge
+}
+
+func newGameEventPlayerReady(gameID uuid.UUID, player string) *GameEvent {
+	payload := GameEventPlayerLobbyAction{
+		Player: player,
+	}
+
+	ge := &GameEvent{
+		ID:      gameID,
+		Payload: payload.Raw(),
+		Type:    GameEventTypePlayerReady,
 	}
 
 	return ge

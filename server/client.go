@@ -43,25 +43,45 @@ func (c *Client) readMessage() {
 }
 
 func (c *Client) handleRead(message []byte) {
-	var command PlayerCommand
-	err := json.Unmarshal(message, &command)
+	var cmd PlayerCommand
+	err := json.Unmarshal(message, &cmd)
 	if err != nil {
 		log.Printf("error unmarshalling command: %s. Error: %s", message, err)
 	}
 
 	// determine type of incoming message
-	switch command.Type {
+	switch cmd.Type {
 	case PlayerCommandTypeCreate:
-		resp, err := command.handleCreateGameCommand()
-		if err != nil {
-			return
-		}
-		c.manager.broadcast <- resp
+		c.handleCreateGame(cmd)
 	case PlayerCommandTypeJoin:
-		c.handleJoinGame(command)
-		// c.manager.broadcast <- resp
+		c.handleJoinGame(cmd)
+	case PlayerCommandTypeReady:
+		c.handlePlayerReady(cmd)
 
 	}
+}
+
+func (c *Client) handleCreateGame(cmd PlayerCommand) {
+	var payload PlayerCommandCreate
+
+	err := json.Unmarshal(cmd.Payload, &payload)
+	if err != nil {
+		log.Printf("error unmarshalling create game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
+		c.send <- []byte("could not parse command payload")
+	}
+
+	game := newGame(payload.Name, payload.QuestionCount)
+	games = append(games, &game)
+
+	// broadcast event to all clients
+	ge := newGameEventCreate(game)
+	msg, err := json.Marshal(ge)
+	if err != nil {
+		log.Printf("error marshalling create game broadcast message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, ge)
+		c.send <- []byte("there was an error creating game")
+		return
+	}
+	c.manager.broadcast <- msg
 }
 
 func (c *Client) handleJoinGame(cmd PlayerCommand) {
@@ -69,14 +89,15 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 
 	err := json.Unmarshal(cmd.Payload, &payload)
 	if err != nil {
-		log.Printf("error unmarshalling join game command payload: %s. Command: %s", err, cmd)
+		log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
 		c.send <- []byte("could not parse command payload")
+		return
 	}
 
 	geEnter := newGameEventPlayerEnter(payload.GameID, c.name)
 	msg, err := json.Marshal(geEnter)
 	if err != nil {
-		log.Printf("error marshalling player enter message: %s\n Command: %+v, Event: %+v", err, c, geEnter)
+		log.Printf("error marshalling player enter message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, geEnter)
 		c.send <- []byte("there was an error joining the game")
 		return
 	}
@@ -86,40 +107,32 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 	geJoin := newGameEventPlayerJoin(payload.GameID, c.name)
 	msg, err = json.Marshal(geJoin)
 	if err != nil {
-		log.Printf("error marshalling join game broadcast: %s\n Command: %+v, Event: %+v", err, c, geJoin)
+		log.Printf("error marshalling join game broadcast: %s\n Client: %+v, Command: %+v, GameEvent: %+v", err, c, cmd, geJoin)
 		c.send <- []byte("there was an error joining the game")
 		return
 	}
 	c.manager.broadcast <- msg
 }
 
-// func (c *Client) handlePlayerJoin(command PlayerCommand) {
-// 	var cmd PlayerCommandJoin
-// 	json.Unmarshal(command.Payload, &cmd)
-// 	ready := make(map[string]bool)
-// 	ready["Player 1"] = false
-// 	ready["Player 2"] = true
-// 	payload := GameEventPlayerEnter{
-// 		Name:          c.name,
-// 		Players:       []string{"Player 1", "Player 2"},
-// 		PlayersReady:  ready,
-// 		QuestionCount: 5,
-// 	}
+func (c *Client) handlePlayerReady(cmd PlayerCommand) {
+	var payload PlayerCommandReady
 
-// 	p, _ := structToEventPayload(payload)
+	err := json.Unmarshal(cmd.Payload, &payload)
+	if err != nil {
+		log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
+		c.send <- []byte("could not parse command payload")
+		return
+	}
 
-// 	ge := &GameEvent{
-// 		ID:      cmd.GameID,
-// 		Payload: p,
-// 		Type:    GameEventTypePlayerEnter,
-// 	}
-
-// 	resp, err := json.Marshal(ge)
-// 	if err != nil {
-// 		log.Printf("error marshalling create game response: %s\n Command: %+v, Event: %+v", err, c, ge)
-// 	}
-// 	c.send <- resp
-// }
+	ge := newGameEventPlayerReady(payload.GameID, c.name)
+	msg, err := json.Marshal(ge)
+	if err != nil {
+		log.Printf("error marshalling player ready broadcast: %s\n Client: %+v Command: %s, GameEvent: %+v", err, c, cmd, ge)
+		c.send <- []byte("there was an error marking yourself as ready")
+		return
+	}
+	c.manager.broadcast <- msg
+}
 
 func (c *Client) writeMessage() {
 	for {

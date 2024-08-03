@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -35,20 +34,6 @@ type PlayerCommandJoin struct {
 	GameID uuid.UUID `json:"game_id"`
 }
 
-func (c PlayerCommand) handleCreateGameCommand() ([]byte, error) {
-	var payload PlayerCommandCreate
-	err := json.Unmarshal(c.Payload, &payload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling create command payload: %+v. Error: %s", payload, err)
-	}
-	game := newGame(payload.Name, payload.QuestionCount)
-	games = append(games, &game)
-
-	// broadcast event
-	ge := newGameEventCreate(game)
-	resp, err := json.Marshal(ge)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling create game response: %s\n Command: %+v, Event: %+v", err, c, ge)
-	}
-	return resp, nil
+type PlayerCommandReady struct {
+	GameID uuid.UUID `json:"game_id"`
 }
