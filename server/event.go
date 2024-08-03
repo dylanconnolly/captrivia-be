@@ -93,9 +93,17 @@ func newGameEventCreate(g Game) *GameEvent {
 	return ge
 }
 
-func newGameEventPlayerEnter(gameID uuid.UUID, player string) *GameEvent {
+func newGameEvent(id uuid.UUID, payload EventPayload, eventType GameEventType) GameEvent {
+	return GameEvent{
+		ID:      id,
+		Payload: payload,
+		Type:    eventType,
+	}
+}
+
+func newGameEventPlayerEnter(id uuid.UUID, player string) GameEvent {
 	// TODO: handle updating game in state once data store is decided
-	i := slices.IndexFunc(games, func(g *Game) bool { return g.ID == gameID })
+	i := slices.IndexFunc(games, func(g *Game) bool { return g.ID == id })
 	game := games[i]
 	log.Printf("game: %+v", game)
 	game.Players = append(game.Players, player)
@@ -109,39 +117,27 @@ func newGameEventPlayerEnter(gameID uuid.UUID, player string) *GameEvent {
 		QuestionCount: game.QuestionCount,
 	}
 
-	ge := &GameEvent{
-		ID:      gameID,
-		Payload: payload.Raw(),
-		Type:    GameEventTypePlayerEnter,
-	}
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerEnter)
 
 	return ge
 }
 
-func newGameEventPlayerJoin(gameID uuid.UUID, player string) *GameEvent {
+func newGameEventPlayerJoin(id uuid.UUID, player string) GameEvent {
 	payload := GameEventPlayerLobbyAction{
 		Player: player,
 	}
 
-	ge := &GameEvent{
-		ID:      gameID,
-		Payload: payload.Raw(),
-		Type:    GameEventTypePlayerJoin,
-	}
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerJoin)
 
 	return ge
 }
 
-func newGameEventPlayerReady(gameID uuid.UUID, player string) *GameEvent {
+func newGameEventPlayerReady(id uuid.UUID, player string) GameEvent {
 	payload := GameEventPlayerLobbyAction{
 		Player: player,
 	}
 
-	ge := &GameEvent{
-		ID:      gameID,
-		Payload: payload.Raw(),
-		Type:    GameEventTypePlayerReady,
-	}
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerReady)
 
 	return ge
 }

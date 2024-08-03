@@ -72,9 +72,8 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 
 	game := newGame(payload.Name, payload.QuestionCount)
 	games = append(games, &game)
-
-	// broadcast event to all clients
 	ge := newGameEventCreate(game)
+
 	msg, err := json.Marshal(ge)
 	if err != nil {
 		log.Printf("error marshalling create game broadcast message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, ge)
