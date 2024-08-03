@@ -52,19 +52,3 @@ func (c PlayerCommand) handleCreateGameCommand() ([]byte, error) {
 	}
 	return resp, nil
 }
-
-func (c PlayerCommand) handleJoinGameCommand(playerName string) ([]byte, error) {
-	var payload PlayerCommandJoin
-	err := json.Unmarshal(c.Payload, &payload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling create command payload: %+v. Error: %s", payload, err)
-	}
-
-	ge := newGameEventPlayerEnter(payload.GameID, playerName)
-
-	resp, err := json.Marshal(ge)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling join game response: %s\n Command: %+v, Event: %+v", err, c, ge)
-	}
-	return resp, nil
-}

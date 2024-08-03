@@ -58,16 +58,39 @@ func (c *Client) handleRead(message []byte) {
 		}
 		c.manager.broadcast <- resp
 	case PlayerCommandTypeJoin:
-		resp, err := command.handleJoinGameCommand(c.name)
-		if err != nil {
-			return
-		}
-		log.Printf("%s", resp)
-		c.send <- resp
-		// need to broadcast player join event to everyone
+		c.handleJoinGame(command)
 		// c.manager.broadcast <- resp
 
 	}
+}
+
+func (c *Client) handleJoinGame(cmd PlayerCommand) {
+	var payload PlayerCommandJoin
+
+	err := json.Unmarshal(cmd.Payload, &payload)
+	if err != nil {
+		log.Printf("error unmarshalling join game command payload: %s. Command: %s", err, cmd)
+		c.send <- []byte("could not parse command payload")
+	}
+
+	geEnter := newGameEventPlayerEnter(payload.GameID, c.name)
+	msg, err := json.Marshal(geEnter)
+	if err != nil {
+		log.Printf("error marshalling player enter message: %s\n Command: %+v, Event: %+v", err, c, geEnter)
+		c.send <- []byte("there was an error joining the game")
+		return
+	}
+	c.send <- msg
+
+	// broadcast player join event to everyone in lobby
+	geJoin := newGameEventPlayerJoin(payload.GameID, c.name)
+	msg, err = json.Marshal(geJoin)
+	if err != nil {
+		log.Printf("error marshalling join game broadcast: %s\n Command: %+v, Event: %+v", err, c, geJoin)
+		c.send <- []byte("there was an error joining the game")
+		return
+	}
+	c.manager.broadcast <- msg
 }
 
 // func (c *Client) handlePlayerJoin(command PlayerCommand) {

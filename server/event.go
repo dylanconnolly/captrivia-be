@@ -106,3 +106,17 @@ func newGameEventPlayerEnter(gameID uuid.UUID, player string) *GameEvent {
 
 	return ge
 }
+
+func newGameEventPlayerJoin(gameID uuid.UUID, player string) *GameEvent {
+	payload := GameEventPlayerJoin{
+		player,
+	}
+
+	ge := &GameEvent{
+		gameID,
+		payload.Raw(),
+		GameEventTypePlayerJoin,
+	}
+
+	return ge
+}
