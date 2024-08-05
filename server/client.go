@@ -65,7 +65,6 @@ func (c *Client) handleRead(message []byte) {
 		c.handleJoinGame(cmd)
 	case PlayerCommandTypeReady:
 		c.handlePlayerReady(cmd)
-
 	}
 }
 
@@ -92,6 +91,22 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 		return
 	}
 	c.hub.broadcast <- msg
+
+	// add player that created the game to the game
+	err = c.hub.db.AddPlayerToGame(game.ID, c.name)
+	if err != nil {
+		return
+	}
+	updatedGame, _ := c.hub.db.GetGame(game.ID)
+	enter := newGameEventPlayerEnter(c.name, updatedGame)
+
+	msg, err = json.Marshal(enter)
+	if err != nil {
+		log.Printf("error marshalling create game broadcast message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, ge)
+		c.send <- []byte("there was an error creating game")
+		return
+	}
+	c.send <- msg
 }
 
 func (c *Client) handleJoinGame(cmd PlayerCommand) {
@@ -103,6 +118,10 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		c.send <- []byte("could not parse command payload")
 		return
 	}
+	err = c.hub.db.AddPlayerToGame(payload.GameID, c.name)
+	if err != nil {
+		log.Printf("error adding player to game: %s", err)
+	}
 	game, err := c.hub.db.GetGame(payload.GameID)
 	log.Printf("game: %+v", game)
 	if err != nil {
@@ -110,7 +129,7 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		return
 	}
 
-	geEnter := newGameEventPlayerEnter(payload.GameID, c.name, *game)
+	geEnter := newGameEventPlayerEnter(c.name, game)
 	msg, err := json.Marshal(geEnter)
 	if err != nil {
 		log.Printf("error marshalling player enter message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, geEnter)
@@ -138,6 +157,11 @@ func (c *Client) handlePlayerReady(cmd PlayerCommand) {
 		log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
 		c.send <- []byte("could not parse command payload")
 		return
+	}
+
+	err = c.hub.db.PlayerReady(payload.GameID, c.name)
+	if err != nil {
+		log.Printf("error readying player: %s", err)
 	}
 
 	ge := newGameEventPlayerReady(payload.GameID, c.name)

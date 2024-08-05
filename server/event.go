@@ -100,7 +100,7 @@ func newGameEvent(id uuid.UUID, payload EventPayload, eventType GameEventType) G
 	}
 }
 
-func newGameEventPlayerEnter(id uuid.UUID, player string, game redis.Game) GameEvent {
+func newGameEventPlayerEnter(player string, game *redis.Game) GameEvent {
 	payload := GameEventPlayerEnter{
 		Name:          player,
 		Players:       game.Players,
@@ -108,7 +108,7 @@ func newGameEventPlayerEnter(id uuid.UUID, player string, game redis.Game) GameE
 		QuestionCount: game.QuestionCount,
 	}
 
-	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerEnter)
+	ge := newGameEvent(game.ID, payload.Raw(), GameEventTypePlayerEnter)
 
 	return ge
 }

@@ -15,6 +15,11 @@ const (
 	gameStateCountdown = "countdown"
 	gameStateQuestion  = "question"
 	gameStateEnded     = "ended"
+
+	gameKey         string = "game:%s"
+	playersKey      string = "game:%s:players"
+	playersReadyKey string = "game:%s:players:ready"
+	playerGamesKey  string = "players:%s:games"
 )
 
 var ctx = context.Background()
@@ -73,25 +78,20 @@ func NewClient() *redis.Client {
 func (db *DB) CreateGame(player string, name string, qCount int) (*Game, error) {
 	g := newGame(name, qCount)
 
-	gKey := fmt.Sprintf("game:%s", g.ID)
-	pKey := fmt.Sprintf("%s:players", gKey)
-	pReadyKey := fmt.Sprintf("%s:ready", pKey)
+	gKey := fmt.Sprintf(gameKey, g.ID)
+	pGKey := fmt.Sprintf(playerGamesKey, player)
 
 	err := db.db.HSet(ctx, gKey, g.toRedisHash()).Err()
 	if err != nil {
 		return nil, err
 	}
+
+	err = db.db.SAdd(ctx, pGKey, g.ID).Err()
+	if err != nil {
+		return nil, err
+	}
+
 	log.Printf("create game: %+v", g)
-
-	err = db.db.SAdd(ctx, pKey, player).Err()
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.db.HSet(ctx, pReadyKey, player, false).Err()
-	if err != nil {
-		return nil, err
-	}
 
 	return &g, nil
 }
@@ -152,6 +152,34 @@ func (db *DB) GetAllGames() ([]Game, error) {
 	}
 
 	return games, nil
+}
+
+func (db *DB) AddPlayerToGame(id uuid.UUID, player string) error {
+	pKey := fmt.Sprintf(playersKey, id)
+	pReadyKey := fmt.Sprintf(playersReadyKey, id)
+
+	err := db.db.SAdd(ctx, pKey, player).Err()
+	if err != nil {
+		return err
+	}
+
+	err = db.db.HSet(ctx, pReadyKey, player, false).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) PlayerReady(id uuid.UUID, player string) error {
+	key := fmt.Sprintf(playersReadyKey, id)
+
+	err := db.db.HSet(ctx, key, player, true).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (db *DB) getGameHash(id uuid.UUID) (map[string]string, error) {
