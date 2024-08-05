@@ -16,6 +16,15 @@ type Question struct {
 	CorrectIndex int      `json:"correctIndex"` //TODO: remove this from frontend
 }
 
+func NewQuestion(id string, question string, options []string, cIndex int) *Question {
+	return &Question{
+		id,
+		question,
+		options,
+		cIndex,
+	}
+}
+
 // LoadQuestions reads a JSON file containing a list of questions to be used
 // for games.
 func LoadQuestions(filename string) ([]Question, error) {

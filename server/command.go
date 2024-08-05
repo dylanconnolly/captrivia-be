@@ -37,3 +37,7 @@ type PlayerCommandJoin struct {
 type PlayerCommandReady struct {
 	GameID uuid.UUID `json:"game_id"`
 }
+
+type PlayerCommandStart struct {
+	GameID uuid.UUID `json:"game_id"`
+}

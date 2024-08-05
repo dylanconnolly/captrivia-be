@@ -65,6 +65,8 @@ func (c *Client) handleRead(message []byte) {
 		c.handleJoinGame(cmd)
 	case PlayerCommandTypeReady:
 		c.handlePlayerReady(cmd)
+	case PlayerCommandTypeStart:
+		c.handleStartGame(cmd)
 	}
 }
 
@@ -171,6 +173,32 @@ func (c *Client) handlePlayerReady(cmd PlayerCommand) {
 		c.send <- []byte("there was an error marking yourself as ready")
 		return
 	}
+	c.hub.broadcast <- msg
+}
+
+func (c *Client) handleStartGame(cmd PlayerCommand) {
+	var payload PlayerCommandStart
+	err := json.Unmarshal(cmd.Payload, &payload)
+	if err != nil {
+		log.Printf("error unmarshalling start game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
+		c.send <- []byte("could not parse command payload")
+		return
+	}
+
+	// send GameEventStart
+	_ = c.hub.db.StartGame(payload.GameID)
+
+	ge := newGameEventStart(payload.GameID)
+	msg, err := json.Marshal(ge)
+	if err != nil {
+		log.Printf("error marshalling game start broadcast: %s\n Client: %+v Command: %s, GameEvent: %+v", err, c, cmd, ge)
+		c.send <- []byte("there was an error starting game")
+		return
+	}
+	c.hub.broadcast <- msg
+
+	ge = newGameEventCountdown(payload.GameID)
+	msg, _ = json.Marshal(ge)
 	c.hub.broadcast <- msg
 }
 

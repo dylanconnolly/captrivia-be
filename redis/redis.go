@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -18,12 +19,19 @@ const (
 	gamePlayersKey      string = "game:%s:players"
 	gamePlayersReadyKey string = "game:%s:players:ready"
 	playerGamesKey      string = "player:%s:games"
+	gameQuestionsKey    string = "game:%s:questions"
+	questionKey         string = "question:%s"
+	questionOptionsKey  string = "question:%s:options"
+	allQuestionsKey     string = "questions"
 )
 
 var ctx = context.Background()
 
 type DB struct {
 	client *redis.Client
+}
+
+type Question struct {
 }
 
 func NewDB() *DB {
@@ -104,6 +112,40 @@ func (db *DB) RemovePlayerFromCreatedGames(player string) error {
 		// need to expire the game and remove it
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (db *DB) LoadQuestions(filename string) error {
+	questions, err := captrivia.LoadQuestions(filename)
+	if err != nil {
+		return err
+	}
+
+	for _, q := range questions {
+		questionKey := fmt.Sprintf(questionKey, q.ID)
+		err := db.client.HSet(ctx, questionKey, map[string]interface{}{
+			"id":            q.ID,
+			"question_text": q.QuestionText,
+			"correct_index": q.CorrectIndex,
+		}).Err()
+		if err != nil {
+			return err
+		}
+
+		// set to track all question IDs and randomly choose questions for games
+		db.client.SAdd(ctx, allQuestionsKey, q.ID)
+
+		optionsKey := fmt.Sprintf(questionOptionsKey, q.ID)
+
+		for _, option := range q.Options {
+			err := db.client.RPush(ctx, optionsKey, option).Err()
+			if err != nil {
+				return err
+			}
+			// lazily trimming options list to be size of JSON question options after each startup
+			db.client.LTrim(ctx, optionsKey, 0, int64(len(q.Options)-1))
 		}
 	}
 	return nil

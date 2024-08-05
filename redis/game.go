@@ -20,6 +20,12 @@ type Game struct {
 	State         string    `json:"state"`
 }
 
+type GameQuestion struct {
+	ID           string `json:"id"`
+	Question     string `json:"question"`
+	CorrectIndex int    `json:"correct_index"`
+}
+
 func newGame(name string, qCount int) Game {
 	return Game{
 		ID:            uuid.New(),
@@ -53,6 +59,8 @@ func (db *DB) CreateGame(player string, name string, qCount int) (*Game, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	// db.generateGameQuestions(g.ID, qCount)
 
 	log.Printf("create game: %+v", g)
 
@@ -121,6 +129,10 @@ func (db *DB) GetAllGames() ([]captrivia.Game, error) {
 	}
 
 	return games, nil
+}
+
+func (db *DB) StartGame(id uuid.UUID) error {
+	return nil
 }
 
 func (db *DB) getGameHashSet(id uuid.UUID) (map[string]string, error) {

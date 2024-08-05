@@ -79,6 +79,37 @@ func (e GameEventPlayerEnter) Raw() *json.RawMessage {
 	return &raw
 }
 
+type GameEventCountdown struct {
+	Seconds int `json:"seconds"`
+}
+
+func (e GameEventCountdown) Raw() *json.RawMessage {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil
+	}
+	raw := json.RawMessage(bytes)
+	return &raw
+}
+
+type GameEventQuestion struct {
+	ID       uuid.UUID `json:"id"`
+	Options  []string  `json:"options"`
+	Question string    `json:"question"`
+	Seconds  int       `json:"seconds"`
+}
+
+type EmptyGameEvent struct{}
+
+func (e EmptyGameEvent) Raw() *json.RawMessage {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil
+	}
+	raw := json.RawMessage(bytes)
+	return &raw
+}
+
 func newGameEventCreate(g redis.Game) *GameEvent {
 	payload := GameEventCreate{
 		Name:          g.Name,
@@ -133,3 +164,27 @@ func newGameEventPlayerReady(id uuid.UUID, player string) GameEvent {
 
 	return ge
 }
+
+func newGameEventStart(id uuid.UUID) GameEvent {
+	payload := EmptyGameEvent{}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypeStart)
+
+	return ge
+}
+
+func newGameEventCountdown(id uuid.UUID) GameEvent {
+	payload := GameEventCountdown{
+		Seconds: 10,
+	}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypeCountdown)
+
+	return ge
+}
+
+// func newGameEventQuestion(id uuid.UUID) GameEvent {
+// 	payload := GameEventQuestion{
+
+// 	}
+// }
