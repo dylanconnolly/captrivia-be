@@ -2,9 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	"log"
-	"slices"
 
+	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
@@ -79,7 +78,7 @@ func (e GameEventPlayerEnter) Raw() *json.RawMessage {
 	return &raw
 }
 
-func newGameEventCreate(g Game) *GameEvent {
+func newGameEventCreate(g redis.Game) *GameEvent {
 	payload := GameEventCreate{
 		Name:          g.Name,
 		QuestionCount: g.QuestionCount,
@@ -101,15 +100,7 @@ func newGameEvent(id uuid.UUID, payload EventPayload, eventType GameEventType) G
 	}
 }
 
-func newGameEventPlayerEnter(id uuid.UUID, player string) GameEvent {
-	// TODO: handle updating game in state once data store is decided
-	i := slices.IndexFunc(games, func(g *Game) bool { return g.ID == id })
-	game := games[i]
-	log.Printf("game: %+v", game)
-	game.Players = append(game.Players, player)
-	game.PlayerCount = game.PlayerCount + 1
-	game.PlayersReady[player] = false
-
+func newGameEventPlayerEnter(id uuid.UUID, player string, game redis.Game) GameEvent {
 	payload := GameEventPlayerEnter{
 		Name:          player,
 		Players:       game.Players,

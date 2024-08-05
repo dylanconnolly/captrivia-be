@@ -12,29 +12,37 @@ var upgrader = websocket.Upgrader{}
 
 // Client manages the websocket for a user and communicates with the ClientManager
 type Client struct {
-	name    string
-	manager *ClientManager
-	conn    *websocket.Conn
-	send    chan []byte
+	name  string
+	hub   *Hub
+	conn  *websocket.Conn
+	send  chan []byte
+	close chan bool
 }
 
 // Creates a new client but does not attach websocket connection. Running serveWebsocket upgrades connection and begins
 // begins running client
-func newClient(name string, manager *ClientManager) *Client {
+func newClient(name string, hub *Hub) *Client {
 	c := &Client{
-		name:    name,
-		manager: manager,
-		send:    make(chan []byte, 256),
+		name:  name,
+		hub:   hub,
+		send:  make(chan []byte, 256),
+		close: make(chan bool),
 	}
 
 	return c
 }
 
 func (c *Client) readMessage() {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			log.Printf("error reading message: %s\n", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+				log.Printf("error reading message: %s\n", err)
+			}
 			break
 		}
 
@@ -70,9 +78,12 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 		c.send <- []byte("could not parse command payload")
 	}
 
-	game := newGame(payload.Name, payload.QuestionCount)
-	games = append(games, &game)
-	ge := newGameEventCreate(game)
+	game, err := c.hub.db.CreateGame(c.name, payload.Name, payload.QuestionCount)
+	if err != nil {
+		log.Printf("error writing to redis: %s", err)
+		return
+	}
+	ge := newGameEventCreate(*game)
 
 	msg, err := json.Marshal(ge)
 	if err != nil {
@@ -80,7 +91,7 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 		c.send <- []byte("there was an error creating game")
 		return
 	}
-	c.manager.broadcast <- msg
+	c.hub.broadcast <- msg
 }
 
 func (c *Client) handleJoinGame(cmd PlayerCommand) {
@@ -92,8 +103,14 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		c.send <- []byte("could not parse command payload")
 		return
 	}
+	game, err := c.hub.db.GetGame(payload.GameID)
+	log.Printf("game: %+v", game)
+	if err != nil {
+		log.Printf("error getting game: %s", err)
+		return
+	}
 
-	geEnter := newGameEventPlayerEnter(payload.GameID, c.name)
+	geEnter := newGameEventPlayerEnter(payload.GameID, c.name, *game)
 	msg, err := json.Marshal(geEnter)
 	if err != nil {
 		log.Printf("error marshalling player enter message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, geEnter)
@@ -110,7 +127,7 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		c.send <- []byte("there was an error joining the game")
 		return
 	}
-	c.manager.broadcast <- msg
+	c.hub.broadcast <- msg
 }
 
 func (c *Client) handlePlayerReady(cmd PlayerCommand) {
@@ -130,10 +147,11 @@ func (c *Client) handlePlayerReady(cmd PlayerCommand) {
 		c.send <- []byte("there was an error marking yourself as ready")
 		return
 	}
-	c.manager.broadcast <- msg
+	c.hub.broadcast <- msg
 }
 
 func (c *Client) writeMessage() {
+	defer c.conn.Close()
 	for {
 		select {
 		case message, ok := <-c.send:
@@ -149,7 +167,7 @@ func (c *Client) writeMessage() {
 	}
 }
 
-// upgrades connection to websocket on client and registers client with ClientManager
+// upgrades connection to websocket on client and registers client with client Hub
 func (c *Client) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		return r.Header.Get("Origin") == "http://localhost:3000"
@@ -160,7 +178,7 @@ func (c *Client) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("error upgrading connection: %s\n", err)
 	}
 	c.conn = conn
-	c.manager.register <- c
+	c.hub.register <- c
 
 	go c.readMessage()
 	go c.writeMessage()

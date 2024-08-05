@@ -2,16 +2,17 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 )
 
 type GameServer struct {
-	cm *ClientManager
+	hub *Hub
 }
 
-func NewGameServer(cm *ClientManager) *GameServer {
-	return &GameServer{cm: cm}
+func NewGameServer(hub *Hub) *GameServer {
+	return &GameServer{hub: hub}
 }
 
 // Games writes the existing games to the response.
@@ -19,8 +20,18 @@ func (g *GameServer) Games(w http.ResponseWriter, r *http.Request) {
 	// TODO: Fix this data so it is not hardcoded, and is the right shape
 	// that the frontend expects
 	var httpGames []HttpGameResp
+
+	games, err := g.hub.db.GetAllGames()
+	if err != nil {
+		log.Println(err)
+		writeJSON(w, http.StatusInternalServerError, httpGames)
+		return
+	}
 	for _, g := range games {
-		httpGames = append(httpGames, g.httpResp())
+		httpGames = append(httpGames, GameToHTTPResp(g))
+	}
+	if len(games) < 1 {
+		writeJSON(w, http.StatusNoContent, httpGames)
 	}
 	writeJSON(w, http.StatusOK, httpGames)
 }
@@ -28,10 +39,17 @@ func (g *GameServer) Games(w http.ResponseWriter, r *http.Request) {
 func (g *GameServer) Connect(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	c := newClient(name, g.cm)
+	// fail if user already exists with name
+	if _, ok := g.hub.clientNames[name]; ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	c := newClient(name, g.hub)
 	c.serveWebsocket(w, r)
 }
 

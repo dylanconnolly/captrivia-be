@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
@@ -44,7 +45,7 @@ type HttpGameResp struct {
 	State         string    `json:"state"`
 }
 
-func (g *Game) httpResp() HttpGameResp {
+func GameToHTTPResp(g redis.Game) HttpGameResp {
 	return HttpGameResp{
 		g.ID,
 		g.Name,
