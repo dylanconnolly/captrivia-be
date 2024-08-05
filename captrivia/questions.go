@@ -1,4 +1,4 @@
-package game
+package captrivia
 
 import (
 	"encoding/json"

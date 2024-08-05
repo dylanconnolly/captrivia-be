@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 
+	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
@@ -100,7 +101,7 @@ func newGameEvent(id uuid.UUID, payload EventPayload, eventType GameEventType) G
 	}
 }
 
-func newGameEventPlayerEnter(player string, game *redis.Game) GameEvent {
+func newGameEventPlayerEnter(player string, game *captrivia.Game) GameEvent {
 	payload := GameEventPlayerEnter{
 		Name:          player,
 		Players:       game.Players,
