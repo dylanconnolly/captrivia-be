@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
-	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
@@ -142,7 +141,7 @@ func (e GameEventPlayerAnswer) Raw() *json.RawMessage {
 }
 
 type GameEventEnd struct {
-	Scores []PlayerScore `json:"scores"`
+	Scores []captrivia.PlayerScore `json:"scores"`
 }
 
 func (e GameEventEnd) Raw() *json.RawMessage {
@@ -165,13 +164,13 @@ func (e EmptyPayload) Raw() *json.RawMessage {
 	return &raw
 }
 
-func newGameEventCreate(g redis.Game) GameEvent {
+func newGameEventCreate(gameID uuid.UUID, gameName string, gameQCount int) GameEvent {
 	payload := GameEventCreate{
-		Name:          g.Name,
-		QuestionCount: g.QuestionCount,
+		Name:          gameName,
+		QuestionCount: gameQCount,
 	}
 	ge := GameEvent{
-		ID:      g.ID,
+		ID:      gameID,
 		Payload: payload.Raw(),
 		Type:    GameEventTypeCreate,
 	}
@@ -198,7 +197,7 @@ func newPlayerEvent(player string, payload EventPayload, eventType PlayerEventTy
 func newGameEventPlayerEnter(player string, game *captrivia.Game) GameEvent {
 	payload := GameEventPlayerEnter{
 		Name:          player,
-		Players:       game.Players,
+		Players:       game.PlayerNames(),
 		PlayersReady:  game.PlayersReady,
 		QuestionCount: game.QuestionCount,
 	}
@@ -291,7 +290,7 @@ func newGameEventPlayerIncorrect(id uuid.UUID, player string, questionID string)
 	return ge
 }
 
-func newGameEventEnd(id uuid.UUID, scores []PlayerScore) GameEvent {
+func newGameEventEnd(id uuid.UUID, scores []captrivia.PlayerScore) GameEvent {
 	payload := GameEventEnd{
 		Scores: scores,
 	}

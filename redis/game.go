@@ -66,15 +66,15 @@ func (db *DB) GetGame(id uuid.UUID) (*captrivia.Game, error) {
 		return nil, err
 	}
 
-	players, err := db.getGamePlayersSet(id)
-	if err != nil {
-		return nil, err
-	}
+	// players, err := db.getGamePlayersSet(id)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	playersReady, err := db.getGamePlayersReadyHashSet(id)
-	if err != nil {
-		return nil, err
-	}
+	// playersReady, err := db.getGamePlayersReadyHashSet(id)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	count, err := strconv.Atoi(redisGame["question_count"])
 	if err != nil {
@@ -82,18 +82,14 @@ func (db *DB) GetGame(id uuid.UUID) (*captrivia.Game, error) {
 		return nil, err
 	}
 
-	gID, err := uuid.Parse(redisGame["id"])
+	// gID, err := uuid.Parse(redisGame["id"])
 	if err != nil {
 		return nil, err
 	}
 
 	g := captrivia.NewGame(
-		gID,
 		redisGame["name"],
-		players,
-		playersReady,
 		count,
-		redisGame["state"],
 	)
 
 	return g, nil

@@ -22,20 +22,18 @@ type PlayerCommand struct {
 	Type    PlayerCommandType `json:"type"`
 }
 
+type GameLobbyCommand struct {
+	player  string
+	payload PlayerLobbyCommand
+	Type    PlayerCommandType
+}
+
 type PlayerCommandCreate struct {
 	Name          string `json:"name"`
 	QuestionCount int    `json:"question_count"`
 }
 
-type PlayerCommandJoin struct {
-	GameID uuid.UUID `json:"game_id"`
-}
-
-type PlayerCommandReady struct {
-	GameID uuid.UUID `json:"game_id"`
-}
-
-type PlayerCommandStart struct {
+type PlayerLobbyCommand struct {
 	GameID uuid.UUID `json:"game_id"`
 }
 

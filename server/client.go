@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 )
@@ -89,39 +90,26 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 		c.send <- []byte("could not parse command payload")
 	}
 
-	redisGame, err := c.hub.db.CreateGame(c.name, payload.Name, payload.QuestionCount)
-	if err != nil {
-		log.Printf("error writing to redis: %s", err)
-		return
-	}
+	game := captrivia.NewGame(payload.Name, payload.QuestionCount)
 
-	ge := newGameEventCreate(*redisGame)
+	// redisGame, err := c.hub.db.CreateGame(c.name, payload.Name, payload.QuestionCount)
+	// if err != nil {
+	// 	log.Printf("error writing to redis: %s", err)
+	// 	return
+	// }
 
+	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)
 	c.hub.broadcast <- ge.toBytes()
 
-	// add player that created the game to the game
-	err = c.hub.db.AddPlayerToGame(redisGame.ID, c.name)
-	if err != nil {
-		return
-	}
-	captriviaGame, _ := c.hub.db.GetGame(redisGame.ID)
-
-	// create gamehub to manage game state
-	gh := NewGameHub(captriviaGame)
+	// create GameHub to manage game and client
+	gh := NewGameHub(game)
 	go gh.Run()
-	gameHubs[redisGame.ID] = gh
-
-	ge = newGameEventPlayerEnter(c.name, captriviaGame)
-
-	// assign client to gamehub
-	c.gameHub = gh
-	c.gameHub.register <- c
-
-	c.send <- ge.toBytes()
+	gh.register <- c
+	gameHubs[gh.id] = gh
 }
 
 func (c *Client) handleJoinGame(cmd PlayerCommand) {
-	var payload PlayerCommandJoin
+	var payload PlayerLobbyCommand
 
 	err := json.Unmarshal(cmd.Payload, &payload)
 	if err != nil {
@@ -130,70 +118,41 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		return
 	}
 
-	err = c.hub.db.AddPlayerToGame(payload.GameID, c.name)
-	if err != nil {
-		log.Printf("error adding player to game: %s", err)
+	log.Println("register new person to game")
+
+	if gameHub, ok := gameHubs[payload.GameID]; ok {
+		gameHub.register <- c
+	} else {
+		c.send <- []byte("could not connect to game")
 	}
-	game, err := c.hub.db.GetGame(payload.GameID)
-	log.Printf("game: %+v", game)
-	if err != nil {
-		log.Printf("error getting game: %s", err)
-		return
-	}
-
-	geEnter := newGameEventPlayerEnter(c.name, game)
-
-	// register gamehub
-	c.gameHub = gameHubs[game.ID]
-	c.gameHub.register <- c
-
-	msg, err := json.Marshal(geEnter)
-	if err != nil {
-		log.Printf("error marshalling player enter message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, geEnter)
-		c.send <- []byte("there was an error joining the game")
-		return
-	}
-	c.send <- msg
-
-	// broadcast player join event to everyone in lobby
-	geJoin := newGameEventPlayerJoin(payload.GameID, c.name)
-	msg, err = json.Marshal(geJoin)
-	if err != nil {
-		log.Printf("error marshalling join game broadcast: %s\n Client: %+v, Command: %+v, GameEvent: %+v", err, c, cmd, geJoin)
-		c.send <- []byte("there was an error joining the game")
-		return
-	}
-
-	c.gameHub.broadcast <- msg
 }
 
 func (c *Client) handlePlayerReady(cmd PlayerCommand) {
-	var payload PlayerCommandReady
+	var payload PlayerLobbyCommand
 
 	err := json.Unmarshal(cmd.Payload, &payload)
 	if err != nil {
-		log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
-		c.send <- []byte("could not parse command payload")
-		return
+		log.Print(err)
+		c.send <- []byte("error unmarshalling payload for player ready command")
 	}
 
-	err = c.hub.db.PlayerReady(payload.GameID, c.name)
-	if err != nil {
-		log.Printf("error readying player: %s", err)
+	gameCommand := GameLobbyCommand{
+		player:  c.name,
+		payload: payload,
+		Type:    PlayerCommandTypeReady,
 	}
 
-	ge := newGameEventPlayerReady(payload.GameID, c.name)
-	msg, err := json.Marshal(ge)
-	if err != nil {
-		log.Printf("error marshalling player ready broadcast: %s\n Client: %+v Command: %s, GameEvent: %+v", err, c, cmd, ge)
-		c.send <- []byte("there was an error marking yourself as ready")
-		return
+	if gameHub, ok := gameHubs[payload.GameID]; ok {
+		log.Printf("command: %+v", gameCommand)
+		gameHub.commands <- gameCommand
+	} else {
+		c.send <- []byte("error occured marking player as ready")
 	}
-	c.gameHub.broadcast <- msg
 }
 
 func (c *Client) handleStartGame(cmd PlayerCommand) {
-	var payload PlayerCommandStart
+	var payload PlayerLobbyCommand
+
 	err := json.Unmarshal(cmd.Payload, &payload)
 	if err != nil {
 		log.Printf("error unmarshalling start game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
@@ -210,7 +169,7 @@ func (c *Client) handleStartGame(cmd PlayerCommand) {
 		return
 	}
 	c.gameHub.broadcast <- msg
-	go c.gameHub.StartGame()
+	// go c.gameHub.StartGame()
 }
 
 func (c *Client) handlePlayerAnswer(cmd PlayerCommand) {
