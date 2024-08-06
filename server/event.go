@@ -93,10 +93,33 @@ func (e GameEventCountdown) Raw() *json.RawMessage {
 }
 
 type GameEventQuestion struct {
-	ID       uuid.UUID `json:"id"`
-	Options  []string  `json:"options"`
-	Question string    `json:"question"`
-	Seconds  int       `json:"seconds"`
+	ID       string   `json:"id"`
+	Options  []string `json:"options"`
+	Question string   `json:"question"`
+	Seconds  int      `json:"seconds"`
+}
+
+func (e GameEventQuestion) Raw() *json.RawMessage {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil
+	}
+	raw := json.RawMessage(bytes)
+	return &raw
+}
+
+type GameEventPlayerAnswer struct {
+	QuestionID string `json:"id"`
+	Player     string `json:"player"`
+}
+
+func (e GameEventPlayerAnswer) Raw() *json.RawMessage {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil
+	}
+	raw := json.RawMessage(bytes)
+	return &raw
 }
 
 type EmptyGameEvent struct{}
@@ -173,9 +196,9 @@ func newGameEventStart(id uuid.UUID) GameEvent {
 	return ge
 }
 
-func newGameEventCountdown(id uuid.UUID) GameEvent {
+func newGameEventCountdown(id uuid.UUID, duration int) GameEvent {
 	payload := GameEventCountdown{
-		Seconds: 10,
+		Seconds: duration,
 	}
 
 	ge := newGameEvent(id, payload.Raw(), GameEventTypeCountdown)
@@ -183,8 +206,37 @@ func newGameEventCountdown(id uuid.UUID) GameEvent {
 	return ge
 }
 
-// func newGameEventQuestion(id uuid.UUID) GameEvent {
-// 	payload := GameEventQuestion{
+func newGameEventQuestion(id uuid.UUID, question *captrivia.Question, duration int) GameEvent {
+	payload := GameEventQuestion{
+		ID:       question.ID,
+		Options:  question.Options,
+		Question: question.QuestionText,
+		Seconds:  duration,
+	}
 
-// 	}
-// }
+	ge := newGameEvent(id, payload.Raw(), GameEventTypeQuestion)
+
+	return ge
+}
+
+func newGameEventPlayerCorrect(id uuid.UUID, player string, questionID string) GameEvent {
+	payload := GameEventPlayerAnswer{
+		QuestionID: questionID,
+		Player:     player,
+	}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerCorrect)
+
+	return ge
+}
+
+func newGameEventPlayerIncorrect(id uuid.UUID, player string, questionID string) GameEvent {
+	payload := GameEventPlayerAnswer{
+		QuestionID: questionID,
+		Player:     player,
+	}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerIncorrect)
+
+	return ge
+}

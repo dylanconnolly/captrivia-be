@@ -1,8 +1,10 @@
 package server
 
-import "github.com/dylanconnolly/captrivia-be/redis"
+import (
+	"github.com/dylanconnolly/captrivia-be/redis"
+)
 
-// ClientManager tracks all active websocket clients and broadcasts
+// Hub tracks all active websocket clients and broadcasts
 // messages to each client.
 type Hub struct {
 	db          *redis.DB
@@ -33,7 +35,7 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			delete(h.clients, client)
 			delete(h.clientNames, client.name)
-			h.db.RemovePlayerFromCreatedGames(client.name)
+			// h.db.RemovePlayerFromCreatedGames(client.name)
 			close(client.send)
 		case message := <-h.broadcast:
 			for client := range h.clients {

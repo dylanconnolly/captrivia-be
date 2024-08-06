@@ -5,15 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type Game struct {
-	ID            uuid.UUID       `json:"id"`
-	Name          string          `json:"name"`
-	Players       []string        `json:"players"`
-	PlayersReady  map[string]bool `json:"players_ready"`
-	QuestionCount int             `json:"question_count"`
-	State         string          `json:"state"`
-}
-
 type HttpGameResp struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
@@ -31,3 +22,25 @@ func GameToHTTPResp(g captrivia.Game) HttpGameResp {
 		g.State,
 	}
 }
+
+// func startGame(rdb *redis.Client) {
+// 	gameID := "game123"
+// 	gameKey := fmt.Sprintf("game:%s", gameID)
+// 	questionsKey := fmt.Sprintf("%s:questions", gameKey)
+
+// 	questions, err := getQuestionsForGame(rdb, questionsKey)
+// 	if err != nil {
+// 		log.Fatal("Error getting questions:", err)
+// 	}
+
+// 	ticker := time.NewTicker(10 * time.Second)
+// 	defer ticker.Stop()
+
+// 	for range ticker.C {
+// 		question := getNextQuestion(questions)
+// 		if question == nil {
+// 			break
+// 		}
+// 		broadcast <- *question
+// 	}
+// }

@@ -41,3 +41,9 @@ type PlayerCommandReady struct {
 type PlayerCommandStart struct {
 	GameID uuid.UUID `json:"game_id"`
 }
+
+type PlayerCommandAnswer struct {
+	GameID     uuid.UUID `json:"game_id"`
+	Index      int       `json:"index"`
+	QuestionID string    `json:"question_id"`
+}

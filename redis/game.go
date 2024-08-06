@@ -7,6 +7,7 @@ import (
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type GamePlayers []string
@@ -20,10 +21,13 @@ type Game struct {
 	State         string    `json:"state"`
 }
 
-type GameQuestion struct {
-	ID           string `json:"id"`
-	Question     string `json:"question"`
-	CorrectIndex int    `json:"correct_index"`
+func (g Game) toRedisHash() map[string]interface{} {
+	return map[string]interface{}{
+		"id":             g.ID.String(),
+		"name":           g.Name,
+		"question_count": g.QuestionCount,
+		"state":          g.State,
+	}
 }
 
 func newGame(name string, qCount int) Game {
@@ -35,18 +39,8 @@ func newGame(name string, qCount int) Game {
 	}
 }
 
-func (g *Game) toRedisHash() map[string]interface{} {
-	return map[string]interface{}{
-		"id":             g.ID.String(),
-		"name":           g.Name,
-		"question_count": g.QuestionCount,
-		"state":          g.State,
-	}
-}
-
 func (db *DB) CreateGame(player string, name string, qCount int) (*Game, error) {
 	g := newGame(name, qCount)
-
 	gKey := fmt.Sprintf(gameKey, g.ID)
 	pGKey := fmt.Sprintf(playerGamesKey, player)
 
@@ -55,14 +49,13 @@ func (db *DB) CreateGame(player string, name string, qCount int) (*Game, error) 
 		return nil, err
 	}
 
+	// add player that created the game to players set
 	err = db.client.SAdd(ctx, pGKey, g.ID.String()).Err()
 	if err != nil {
 		return nil, err
 	}
 
-	// db.generateGameQuestions(g.ID, qCount)
-
-	log.Printf("create game: %+v", g)
+	db.generateGameQuestions(g.ID, g.QuestionCount)
 
 	return &g, nil
 }
@@ -85,6 +78,7 @@ func (db *DB) GetGame(id uuid.UUID) (*captrivia.Game, error) {
 
 	count, err := strconv.Atoi(redisGame["question_count"])
 	if err != nil {
+		log.Printf("%+v", redisGame)
 		return nil, err
 	}
 
@@ -138,6 +132,8 @@ func (db *DB) StartGame(id uuid.UUID) error {
 func (db *DB) getGameHashSet(id uuid.UUID) (map[string]string, error) {
 	key := fmt.Sprintf("game:%s", id)
 
+	log.Println("looking up ID ", key)
+
 	gameFields, err := db.client.HGetAll(ctx, key).Result()
 	if err != nil {
 		return nil, err
@@ -175,4 +171,33 @@ func (db *DB) getGamePlayersReadyHashSet(id uuid.UUID) (GamePlayersReady, error)
 	}
 
 	return ready, nil
+}
+
+func getGameHashSet(client *redis.Client, id uuid.UUID) (map[string]string, error) {
+	key := fmt.Sprintf("game:%s", id)
+
+	gameFields, err := client.HGetAll(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return gameFields, nil
+}
+
+func (db *DB) generateGameQuestions(id uuid.UUID, count int) error {
+	gameQuestionsKey := fmt.Sprintf(gameQuestionsKey, id)
+
+	randomQuestionIDs, err := db.generateRandomQuestionIDs(count)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range randomQuestionIDs {
+		err := db.client.RPush(ctx, gameQuestionsKey, id).Err()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

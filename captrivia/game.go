@@ -4,6 +4,13 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	GameStateWaiting   = "waiting"
+	GameStateCountdown = "countdown"
+	GameStateQuestion  = "question"
+	GameStateEnded     = "ended"
+)
+
 type Game struct {
 	ID            uuid.UUID       `json:"id"`
 	Name          string          `json:"name"`

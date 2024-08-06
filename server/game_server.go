@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/dylanconnolly/captrivia-be/redis"
 )
 
 type GameServer struct {
@@ -49,7 +51,7 @@ func (g *GameServer) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := newClient(name, g.hub)
+	c := newClient(name, g.hub, redis.NewClient())
 	c.serveWebsocket(w, r)
 }
 

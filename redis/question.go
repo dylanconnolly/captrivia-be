@@ -2,9 +2,11 @@ package redis
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
+	"github.com/google/uuid"
 )
 
 func (db *DB) getQuestion(id string) (*captrivia.Question, error) {
@@ -32,21 +34,44 @@ func (db *DB) getQuestion(id string) (*captrivia.Question, error) {
 	return q, nil
 }
 
-func (db *DB) generateRandomQuestions(count int) ([]captrivia.Question, error) {
-	var questions []captrivia.Question
-
+func (db *DB) generateRandomQuestionIDs(count int) ([]string, error) {
 	questionIDs, err := db.client.SRandMemberN(ctx, allQuestionsKey, int64(count)).Result()
 	if err != nil {
 		return nil, err
 	}
+	log.Println("count is ", count)
+	log.Printf("generated question IDs: %+v", questionIDs)
+	return questionIDs, nil
+}
 
-	for _, id := range questionIDs {
-		q, err := db.getQuestion(id)
-		if err != nil {
-			return nil, err
-		}
-		questions = append(questions, *q)
+func (db *DB) GetNextQuestion(gameID uuid.UUID) (*captrivia.Question, error) {
+	gameQuestionsKey := fmt.Sprintf(gameQuestionsKey, gameID)
+
+	id, err := db.client.LPop(ctx, gameQuestionsKey).Result()
+	if err != nil {
+		return nil, err
 	}
 
-	return questions, nil
+	q, err := db.getQuestion(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return q, nil
+}
+
+func (db *DB) GetQuestionCorrectIndex(id string) (int, error) {
+	questionKey := fmt.Sprintf(questionKey, id)
+
+	correctIndex, err := db.client.HGet(ctx, questionKey, "correct_index").Result()
+	if err != nil {
+		return -1, err
+	}
+
+	index, err := strconv.Atoi(correctIndex)
+	if err != nil {
+		return -1, err
+	}
+
+	return index, nil
 }
