@@ -19,7 +19,7 @@ type Player struct {
 	UpdatedAt           time.Time `json:"last_update"`
 }
 
-func (db *DB) addPlayerGame(player string, gameID uuid.UUID) error {
+func (db *DB) addPlayerToGame(player string, gameID uuid.UUID) error {
 	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
 
 	err := db.client.SAdd(ctx, playerGamesKey, gameID.String()).Err()
@@ -40,3 +40,14 @@ func (db *DB) getPlayerGames(player string) (PlayerGames, error) {
 
 	return gameIDs, err
 }
+
+// func (db *DB) removePlayerFromGame(player string, gameID uuid.UUID) error {
+// 	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
+
+// 	err := db.client.SRem(ctx, playerGamesKey, gameID.String()).Err()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }

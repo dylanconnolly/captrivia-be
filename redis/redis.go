@@ -64,7 +64,7 @@ func (db *DB) AddPlayerToGame(id uuid.UUID, player string) error {
 		return err
 	}
 
-	err = db.addPlayerGame(player, id)
+	err = db.addPlayerToGame(player, id)
 	if err != nil {
 		return err
 	}

@@ -9,19 +9,22 @@ import (
 )
 
 type GameEventType string
+type PlayerEventType string
 
 const (
-	GameEventTypeCreate          = "game_create"
-	GameEventTypeStart           = "game_start"
-	GameEventTypeEnd             = "game_end"
-	GameEventTypeCountdown       = "game_countdown"
-	GameEventTypeQuestion        = "game_question"
-	GameEventTypePlayerEnter     = "game_player_enter"
-	GameEventTypePlayerJoin      = "game_player_join"
-	GameEventTypePlayerReady     = "game_player_ready"
-	GameEventTypePlayerLeave     = "game_player_leave"
-	GameEventTypePlayerCorrect   = "game_player_correct"
-	GameEventTypePlayerIncorrect = "game_player_incorrect"
+	GameEventTypeCreate          GameEventType   = "game_create"
+	GameEventTypeStart           GameEventType   = "game_start"
+	GameEventTypeEnd             GameEventType   = "game_end"
+	GameEventTypeCountdown       GameEventType   = "game_countdown"
+	GameEventTypeQuestion        GameEventType   = "game_question"
+	GameEventTypePlayerEnter     GameEventType   = "game_player_enter"
+	GameEventTypePlayerJoin      GameEventType   = "game_player_join"
+	GameEventTypePlayerReady     GameEventType   = "game_player_ready"
+	GameEventTypePlayerLeave     GameEventType   = "game_player_leave"
+	GameEventTypePlayerCorrect   GameEventType   = "game_player_correct"
+	GameEventTypePlayerIncorrect GameEventType   = "game_player_incorrect"
+	PlayerEventTypeConnect       PlayerEventType = "player_connect"
+	PlayerEventTypeDisconnect    PlayerEventType = "player_disconnect"
 )
 
 type EventPayload interface {
@@ -32,6 +35,12 @@ type GameEvent struct {
 	ID      uuid.UUID     `json:"id"`
 	Payload EventPayload  `json:"payload"`
 	Type    GameEventType `json:"type"`
+}
+
+type PlayerEvent struct {
+	Payload EventPayload    `json:"payload"`
+	Player  string          `json:"player"`
+	Type    PlayerEventType `json:"type"`
 }
 
 // Payload to be sent to client when a new game is created
@@ -122,9 +131,9 @@ func (e GameEventPlayerAnswer) Raw() *json.RawMessage {
 	return &raw
 }
 
-type EmptyGameEvent struct{}
+type EmptyPayload struct{}
 
-func (e EmptyGameEvent) Raw() *json.RawMessage {
+func (e EmptyPayload) Raw() *json.RawMessage {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return nil
@@ -151,6 +160,14 @@ func newGameEvent(id uuid.UUID, payload EventPayload, eventType GameEventType) G
 	return GameEvent{
 		ID:      id,
 		Payload: payload,
+		Type:    eventType,
+	}
+}
+
+func newPlayerEvent(player string, payload EventPayload, eventType PlayerEventType) PlayerEvent {
+	return PlayerEvent{
+		Payload: payload,
+		Player:  player,
 		Type:    eventType,
 	}
 }
@@ -189,7 +206,7 @@ func newGameEventPlayerReady(id uuid.UUID, player string) GameEvent {
 }
 
 func newGameEventStart(id uuid.UUID) GameEvent {
-	payload := EmptyGameEvent{}
+	payload := EmptyPayload{}
 
 	ge := newGameEvent(id, payload.Raw(), GameEventTypeStart)
 
@@ -239,4 +256,20 @@ func newGameEventPlayerIncorrect(id uuid.UUID, player string, questionID string)
 	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerIncorrect)
 
 	return ge
+}
+
+func newPlayerEventConnect(player string) PlayerEvent {
+	payload := EmptyPayload{}
+
+	pe := newPlayerEvent(player, payload.Raw(), PlayerEventTypeConnect)
+
+	return pe
+}
+
+func newPlayerEventDisconnect(player string) PlayerEvent {
+	payload := EmptyPayload{}
+
+	pe := newPlayerEvent(player, payload.Raw(), PlayerEventTypeDisconnect)
+
+	return pe
 }

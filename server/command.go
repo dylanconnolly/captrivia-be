@@ -7,16 +7,13 @@ import (
 )
 
 type PlayerCommandType string
-type PlayerEventType string
 
 const (
-	PlayerCommandTypeCreate   PlayerCommandType = "create"
-	PlayerCommandTypeJoin     PlayerCommandType = "join"
-	PlayerCommandTypeReady    PlayerCommandType = "ready"
-	PlayerCommandTypeStart    PlayerCommandType = "start"
-	PlayerCommandTypeAnswer   PlayerCommandType = "answer"
-	PlayerEventTypeConnect    PlayerEventType   = "player_connect"
-	PlayerEventTypeDisconnect PlayerEventType   = "player_disconnect"
+	PlayerCommandTypeCreate PlayerCommandType = "create"
+	PlayerCommandTypeJoin   PlayerCommandType = "join"
+	PlayerCommandTypeReady  PlayerCommandType = "ready"
+	PlayerCommandTypeStart  PlayerCommandType = "start"
+	PlayerCommandTypeAnswer PlayerCommandType = "answer"
 )
 
 type PlayerCommand struct {

@@ -38,8 +38,12 @@ func newClient(name string, hub *Hub, rdb *redis.Client) *Client {
 
 func (c *Client) readMessage() {
 	defer func() {
+		log.Println("disconnected client, sending event")
+		pe := newPlayerEventDisconnect(c.name)
+		msg, _ := json.Marshal(pe)
 		c.hub.unregister <- c
 		c.conn.Close()
+		c.hub.broadcast <- msg
 	}()
 	for {
 		_, message, err := c.conn.ReadMessage()
@@ -75,33 +79,6 @@ func (c *Client) handleRead(message []byte) {
 		c.handlePlayerAnswer(cmd)
 	}
 }
-
-// func (c *Client) subscribe(gameID uuid.UUID) {
-// 	pubsub := c.redis.Subscribe(context.Background(), gameID.String())
-// 	c.sub = pubsub
-// 	defer c.sub.Close()
-
-// 	log.Printf("subscribing to redis pubsub %s", gameID)
-// 	cancel := make(chan bool)
-// 	ch := c.sub.Channel()
-
-// 	for {
-// 		select {
-// 		case message := <-ch:
-// 			fmt.Println("got channel message", message.Payload)
-// 			c.send <- []byte(message.Payload)
-// 		case <-cancel:
-// 			log.Println("cancelling subscription")
-// 			c.unsubscribe()
-// 			return
-// 		}
-// 	}
-// }
-
-// func (c *Client) unsubscribe() {
-// 	log.Println("cancelling subscription", c.sub.String())
-// 	c.sub.Unsubscribe(context.Background())
-// }
 
 func (c *Client) handleCreateGame(cmd PlayerCommand) {
 	var payload PlayerCommandCreate
@@ -264,20 +241,6 @@ func (c *Client) handlePlayerAnswer(cmd PlayerCommand) {
 	}
 
 	c.gameHub.answers <- ga
-	// correctIndex, err := c.hub.db.GetQuestionCorrectIndex(payload.QuestionID)
-	// if err != nil {
-	// 	log.Printf("error getting question's correct answer: %s", err)
-	// }
-
-	// var ge GameEvent
-	// if payload.Index == correctIndex {
-	// 	ge = newGameEventPlayerCorrect(payload.GameID, c.name, payload.QuestionID)
-	// } else {
-	// 	ge = newGameEventPlayerIncorrect(payload.GameID, c.name, payload.QuestionID)
-	// }
-
-	// msg, _ := json.Marshal(ge)
-	// c.gameHub.broadcast <- msg
 }
 
 func (c *Client) writeMessage() {
@@ -309,6 +272,9 @@ func (c *Client) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	c.conn = conn
 	c.hub.register <- c
+	pe := newPlayerEventConnect(c.name)
+	msg, _ := json.Marshal(pe)
+	c.hub.broadcast <- msg
 
 	go c.readMessage()
 	go c.writeMessage()
