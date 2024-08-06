@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/dylanconnolly/captrivia-be/redis"
@@ -35,6 +36,15 @@ type GameEvent struct {
 	ID      uuid.UUID     `json:"id"`
 	Payload EventPayload  `json:"payload"`
 	Type    GameEventType `json:"type"`
+}
+
+func (e GameEvent) toBytes() []byte {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		log.Printf("error marshalling %s for gameID=%s. Err: %s", e.Type, e.ID, err)
+		return []byte("error marshalling GameEvent response")
+	}
+	return bytes
 }
 
 type PlayerEvent struct {
@@ -131,6 +141,19 @@ func (e GameEventPlayerAnswer) Raw() *json.RawMessage {
 	return &raw
 }
 
+type GameEventEnd struct {
+	Scores []PlayerScore `json:"scores"`
+}
+
+func (e GameEventEnd) Raw() *json.RawMessage {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil
+	}
+	raw := json.RawMessage(bytes)
+	return &raw
+}
+
 type EmptyPayload struct{}
 
 func (e EmptyPayload) Raw() *json.RawMessage {
@@ -142,12 +165,12 @@ func (e EmptyPayload) Raw() *json.RawMessage {
 	return &raw
 }
 
-func newGameEventCreate(g redis.Game) *GameEvent {
+func newGameEventCreate(g redis.Game) GameEvent {
 	payload := GameEventCreate{
 		Name:          g.Name,
 		QuestionCount: g.QuestionCount,
 	}
-	ge := &GameEvent{
+	ge := GameEvent{
 		ID:      g.ID,
 		Payload: payload.Raw(),
 		Type:    GameEventTypeCreate,
@@ -205,6 +228,16 @@ func newGameEventPlayerReady(id uuid.UUID, player string) GameEvent {
 	return ge
 }
 
+func newGameEventPlayerLeave(id uuid.UUID, player string) GameEvent {
+	payload := GameEventPlayerLobbyAction{
+		Player: player,
+	}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerLeave)
+
+	return ge
+}
+
 func newGameEventStart(id uuid.UUID) GameEvent {
 	payload := EmptyPayload{}
 
@@ -254,6 +287,16 @@ func newGameEventPlayerIncorrect(id uuid.UUID, player string, questionID string)
 	}
 
 	ge := newGameEvent(id, payload.Raw(), GameEventTypePlayerIncorrect)
+
+	return ge
+}
+
+func newGameEventEnd(id uuid.UUID, scores []PlayerScore) GameEvent {
+	payload := GameEventEnd{
+		Scores: scores,
+	}
+
+	ge := newGameEvent(id, payload.Raw(), GameEventTypeEnd)
 
 	return ge
 }

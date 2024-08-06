@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 
 	db := redis.NewDB()
-	db.LoadQuestions("questions.json")
+	db.LoadQuestionsFromFile("questions.json")
 	hub := server.NewHub(db)
 	go hub.Run()
 

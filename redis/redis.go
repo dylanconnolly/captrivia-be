@@ -117,7 +117,7 @@ func (db *DB) RemovePlayerFromCreatedGames(player string) error {
 	return nil
 }
 
-func (db *DB) LoadQuestions(filename string) error {
+func (db *DB) LoadQuestionsFromFile(filename string) error {
 	questions, err := captrivia.LoadQuestions(filename)
 	if err != nil {
 		return err

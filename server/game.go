@@ -1,6 +1,8 @@
 package server
 
 import (
+	"sync"
+
 	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/google/uuid"
 )
@@ -21,6 +23,19 @@ func GameToHTTPResp(g captrivia.Game) HttpGameResp {
 		g.QuestionCount,
 		g.State,
 	}
+}
+
+type Game struct {
+	id                   uuid.UUID
+	name                 string
+	State                string
+	Mutex                sync.Mutex
+	Answered             bool
+	Questions            []captrivia.Question
+	CurrentQuestionIndex int
+	Scores               map[string]int
+	PlayerCount          int
+	Players              []string
 }
 
 // func startGame(rdb *redis.Client) {

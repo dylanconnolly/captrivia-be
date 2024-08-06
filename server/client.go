@@ -97,13 +97,7 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 
 	ge := newGameEventCreate(*redisGame)
 
-	msg, err := json.Marshal(ge)
-	if err != nil {
-		log.Printf("error marshalling create game broadcast message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, ge)
-		c.send <- []byte("there was an error creating game")
-		return
-	}
-	c.hub.broadcast <- msg
+	c.hub.broadcast <- ge.toBytes()
 
 	// add player that created the game to the game
 	err = c.hub.db.AddPlayerToGame(redisGame.ID, c.name)
@@ -117,19 +111,13 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 	go gh.Run()
 	gameHubs[redisGame.ID] = gh
 
-	enter := newGameEventPlayerEnter(c.name, captriviaGame)
+	ge = newGameEventPlayerEnter(c.name, captriviaGame)
 
 	// assign client to gamehub
 	c.gameHub = gh
 	c.gameHub.register <- c
 
-	msg, err = json.Marshal(enter)
-	if err != nil {
-		log.Printf("error marshalling create game broadcast message: %s\n Client: %+v, Command: %s, GameEvent: %+v", err, c, cmd, ge)
-		c.send <- []byte("there was an error creating game")
-		return
-	}
-	c.send <- msg
+	c.send <- ge.toBytes()
 }
 
 func (c *Client) handleJoinGame(cmd PlayerCommand) {

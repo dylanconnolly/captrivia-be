@@ -125,8 +125,23 @@ func (db *DB) GetAllGames() ([]captrivia.Game, error) {
 	return games, nil
 }
 
-func (db *DB) StartGame(id uuid.UUID) error {
-	return nil
+func (db *DB) GetGameQuestions(id uuid.UUID) ([]captrivia.Question, error) {
+	var questions []captrivia.Question
+	key := fmt.Sprintf(gameQuestionsKey, id)
+	questionIDs, err := db.client.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, id := range questionIDs {
+		q, err := db.getQuestion(id)
+		if err != nil {
+			return nil, err
+		}
+		questions = append(questions, *q)
+	}
+
+	return questions, nil
 }
 
 func (db *DB) getGameHashSet(id uuid.UUID) (map[string]string, error) {
