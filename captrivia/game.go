@@ -2,6 +2,7 @@ package captrivia
 
 import (
 	"encoding/json"
+	"log"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -38,6 +39,7 @@ type PlayerScore struct {
 type GameService interface {
 	SaveGame(g *Game) error
 	GetGames() ([]RepositoryGame, error)
+	ExpireGame(id uuid.UUID) error
 }
 
 func (g Game) MarshalJSON() ([]byte, error) {
@@ -102,14 +104,14 @@ func newGame(name string, qCount int) *Game {
 func NewGame(name string, qCount int) *Game {
 	game := newGame(name, qCount)
 
-	// questions, err := LoadQuestions("questions.json")
-	// if err != nil {
-	// 	log.Println("error loading questions to game")
-	// 	return nil
-	// }
+	questions, err := LoadQuestions("questions.json")
+	if err != nil {
+		log.Println("error loading questions to game")
+		return nil
+	}
 
-	// shuffled := ShuffleQuestions(questions, qCount)
-	// game.questions = shuffled
+	shuffled := ShuffleQuestions(questions, qCount)
+	game.questions = shuffled
 
 	return game
 }

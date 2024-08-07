@@ -60,7 +60,7 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 		key := iter.Val()
 		// strip "game:" from key string value
 		id, err := uuid.Parse(key[5:])
-		// swaller error and skip key if does not parse since that
+		// swallow error and skip key if does not parse since that
 		// means it is a key to game:id:players or game:id:players:ready
 		if err != nil {
 			continue
@@ -77,13 +77,6 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 			return nil, err
 		}
 
-		// jsonGame, err := json.Marshal(gameResp)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// var game captrivia.RepositoryGame
-		// json.Unmarshal(jsonGame, &game)
 		games = append(games, game)
 	}
 	if err := iter.Err(); err != nil {
@@ -91,4 +84,9 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 	}
 
 	return games, nil
+}
+
+func (s *GameService) ExpireGame(gameID uuid.UUID) error {
+	key := fmt.Sprintf(gameKey, gameID)
+	return s.rdb.Expire(ctx, key, gameEndExpiry).Err()
 }

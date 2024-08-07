@@ -2,19 +2,21 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	gameKey             string = "game:%s"
-	gamePlayersKey      string = "game:%s:players"
-	gamePlayersReadyKey string = "game:%s:players:ready"
-	playerGamesKey      string = "player:%s:games"
-	gameQuestionsKey    string = "game:%s:questions"
-	questionKey         string = "question:%s"
-	questionOptionsKey  string = "question:%s:options"
-	allQuestionsKey     string = "questions"
+	gameEndExpiry       time.Duration = (time.Duration(5) * time.Minute)
+	gameKey             string        = "game:%s"
+	gamePlayersKey      string        = "game:%s:players"
+	gamePlayersReadyKey string        = "game:%s:players:ready"
+	playerGamesKey      string        = "player:%s:games"
+	gameQuestionsKey    string        = "game:%s:questions"
+	questionKey         string        = "question:%s"
+	questionOptionsKey  string        = "question:%s:options"
+	allQuestionsKey     string        = "questions"
 )
 
 var ctx = context.Background()
@@ -24,7 +26,8 @@ type Question struct {
 
 func NewClient() *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
+		// Addr:     "redis:6379" // for docker container
+		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})

@@ -40,6 +40,10 @@ func (s MockGameService) SaveGame(g *captrivia.Game) error {
 	return nil
 }
 
+func (s MockGameService) ExpireGame(g uuid.UUID) error {
+	return nil
+}
+
 func buildEvent(resp []byte, v server.EventPayload) server.GameEvent {
 	var event server.GameEvent
 	event.Payload = v
@@ -89,17 +93,15 @@ func toBytes(command server.PlayerCommand) []byte {
 
 var hub *server.Hub = server.NewHub(MockGameService{})
 
-func Setup() (*server.GameHub, context.CancelFunc) {
-	game := captrivia.NewGame(gameName, questionCount)
-	gameHub := server.NewGameHub(game, MockGameService{})
+func Setup() (uuid.UUID, context.CancelFunc) {
+	id := hub.NewGameHub(gameName, questionCount)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go hub.Run(ctx)
+	hub.RunGameHub(id)
 
-	go gameHub.Run(ctx, make(chan server.GameEvent, 2))
-
-	return gameHub, cancel
+	return id, cancel
 }
 
 func TestServeWebsocket(t *testing.T) {
@@ -183,13 +185,12 @@ func TestPlayerCommandJoin(t *testing.T) {
 	defer s.Close()
 	defer ws.Close()
 
-	gameHub, cancel := Setup()
-	server.GameHubs[gameHub.ID] = gameHub
+	gameID, cancel := Setup()
 
 	command := server.PlayerCommand{
 		Nonce: "123456",
 		Payload: Raw(server.PlayerLobbyCommand{
-			GameID: gameHub.ID,
+			GameID: gameID,
 		}),
 		Type: server.PlayerCommandTypeJoin,
 	}
@@ -203,7 +204,7 @@ func TestPlayerCommandJoin(t *testing.T) {
 	pmap[playerName] = false
 
 	expected := server.GameEvent{
-		ID: gameHub.ID,
+		ID: gameID,
 		Payload: server.GameEventPlayerEnter{
 			Name:          gameName,
 			Players:       []string{playerName},
@@ -221,7 +222,7 @@ func TestPlayerCommandJoin(t *testing.T) {
 	assert.Equal(t, expected.Type, expected.Type)
 
 	expected = server.GameEvent{
-		ID: gameHub.ID,
+		ID: gameID,
 		Payload: server.GameEventPlayerLobbyAction{
 			Player: playerName,
 		}.Raw(),
