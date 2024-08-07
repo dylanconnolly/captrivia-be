@@ -2,6 +2,7 @@ package captrivia
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/google/uuid"
 )
@@ -21,14 +22,15 @@ type Game struct {
 	QuestionCount int             `json:"question_count"`
 	State         string          `json:"state"`
 
-	questions            []Question
 	currentQuestionIndex int
+	questions            []Question
 	scores               map[string]int
+	gameEnded            chan bool
 }
 
 type PlayerScore struct {
-	Player string `json:"player"`
-	Score  int    `json:"score"`
+	Name  string `json:"name"`
+	Score int    `json:"score"`
 }
 
 func (g Game) MarshalJSON() ([]byte, error) {
@@ -51,7 +53,7 @@ func (g Game) PlayerNames() []string {
 	return names
 }
 
-func NewGame(name string, qCount int) *Game {
+func newGame(name string, qCount int) *Game {
 	return &Game{
 		ID:            uuid.New(),
 		Name:          name,
@@ -60,6 +62,21 @@ func NewGame(name string, qCount int) *Game {
 		State:         GameStateWaiting,
 		scores:        make(map[string]int),
 	}
+}
+
+func NewGame(name string, qCount int) *Game {
+	game := newGame(name, qCount)
+
+	questions, err := LoadQuestions("questions.json")
+	if err != nil {
+		log.Println("error loading questions to game")
+		return nil
+	}
+
+	shuffled := ShuffleQuestions(questions, qCount)
+	game.questions = shuffled
+
+	return game
 }
 
 func (g *Game) AddPlayer(player string) {
@@ -82,8 +99,8 @@ func (g *Game) PlayerScores() []PlayerScore {
 	var playerScores []PlayerScore
 	for player, score := range g.scores {
 		s := PlayerScore{
-			Player: player,
-			Score:  score,
+			Name:  player,
+			Score: score,
 		}
 		playerScores = append(playerScores, s)
 	}
@@ -91,6 +108,36 @@ func (g *Game) PlayerScores() []PlayerScore {
 	return playerScores
 }
 
+func (g *Game) CurrentQuestion() Question {
+	return g.questions[g.currentQuestionIndex]
+}
+
+func (g *Game) GoToNextQuestion() error {
+	if g.IsLastQuestion() {
+		// log.Println("ending game")
+		// return fmt.Errorf("game has ended")
+		g.gameEnded <- true
+	}
+	g.currentQuestionIndex++
+	return nil
+}
+
+func (g *Game) IsLastQuestion() bool {
+	return g.currentQuestionIndex >= (len(g.questions) - 1)
+}
+
 func (g *Game) StartGame() {
 	g.State = GameStateCountdown
+}
+
+func (g *Game) ValidateAnswer(index int) bool {
+	return index == g.questions[g.currentQuestionIndex].CorrectIndex
+}
+
+func (g *Game) IncrementPlayerScore(player string) {
+	g.scores[player] += 1
+}
+
+func (g *Game) AttachGameEnded(channel chan bool) {
+	g.gameEnded = channel
 }

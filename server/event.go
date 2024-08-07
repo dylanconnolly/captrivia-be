@@ -255,7 +255,7 @@ func newGameEventCountdown(id uuid.UUID, duration int) GameEvent {
 	return ge
 }
 
-func newGameEventQuestion(id uuid.UUID, question *captrivia.Question, duration int) GameEvent {
+func newGameEventQuestion(id uuid.UUID, question captrivia.Question, duration int) GameEvent {
 	payload := GameEventQuestion{
 		ID:       question.ID,
 		Options:  question.Options,

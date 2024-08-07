@@ -143,8 +143,6 @@ func (db *DB) GetGameQuestions(id uuid.UUID) ([]captrivia.Question, error) {
 func (db *DB) getGameHashSet(id uuid.UUID) (map[string]string, error) {
 	key := fmt.Sprintf("game:%s", id)
 
-	log.Println("looking up ID ", key)
-
 	gameFields, err := db.client.HGetAll(ctx, key).Result()
 	if err != nil {
 		return nil, err

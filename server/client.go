@@ -66,6 +66,8 @@ func (c *Client) handleRead(message []byte) {
 		log.Printf("error unmarshalling command: %s. Error: %s", message, err)
 	}
 
+	log.Println("server recieve websocket command: ", cmd)
+
 	// determine type of incoming message
 	switch cmd.Type {
 	case PlayerCommandTypeCreate:
@@ -118,8 +120,6 @@ func (c *Client) handleJoinGame(cmd PlayerCommand) {
 		return
 	}
 
-	log.Println("register new person to game")
-
 	if gameHub, ok := gameHubs[payload.GameID]; ok {
 		gameHub.register <- c
 	} else {
@@ -143,7 +143,6 @@ func (c *Client) handlePlayerReady(cmd PlayerCommand) {
 	}
 
 	if gameHub, ok := gameHubs[payload.GameID]; ok {
-		log.Printf("command: %+v", gameCommand)
 		gameHub.commands <- gameCommand
 	} else {
 		c.send <- []byte("error occured marking player as ready")
@@ -160,16 +159,15 @@ func (c *Client) handleStartGame(cmd PlayerCommand) {
 		return
 	}
 
-	// send GameEventStart
-	ge := newGameEventStart(c.gameHub.id)
-	msg, err := json.Marshal(ge)
-	if err != nil {
-		// log.Printf("error marshalling game start broadcast: %s\n Client: %+v Command: %s, GameEvent: %+v", err, c, cmd, ge)
-		c.gameHub.broadcast <- []byte("there was an error starting game")
-		return
+	gameCommand := GameLobbyCommand{
+		player:  c.name,
+		payload: payload,
+		Type:    PlayerCommandTypeStart,
 	}
-	c.gameHub.broadcast <- msg
-	// go c.gameHub.StartGame()
+
+	if gameHub, ok := gameHubs[payload.GameID]; ok {
+		gameHub.commands <- gameCommand
+	}
 }
 
 func (c *Client) handlePlayerAnswer(cmd PlayerCommand) {
@@ -187,7 +185,9 @@ func (c *Client) handlePlayerAnswer(cmd PlayerCommand) {
 		Index:      payload.Index,
 	}
 
-	c.gameHub.answers <- ga
+	if gameHub, ok := gameHubs[payload.GameID]; ok {
+		gameHub.answers <- ga
+	}
 }
 
 func (c *Client) writeMessage() {

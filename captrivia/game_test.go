@@ -2,6 +2,7 @@ package captrivia_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
@@ -66,7 +67,7 @@ func TestPlayerScores(t *testing.T) {
 	g.AddPlayer("player 1")
 
 	assert.Equal(t, 1, len(g.PlayerScores()))
-	assert.Equal(t, "player 1", g.PlayerScores()[0].Player)
+	assert.Equal(t, "player 1", g.PlayerScores()[0].Name)
 	assert.Equal(t, 0, g.PlayerScores()[0].Score)
 
 	g.AddPlayer("player 2")
@@ -97,4 +98,27 @@ func TestRemovePlayer(t *testing.T) {
 
 	assert.Equal(t, 0, g.PlayerCount)
 	assert.Empty(t, 0, g.PlayerScores)
+}
+
+func TestIsLastQuestion(t *testing.T) {
+	questions, err := captrivia.LoadQuestions("../questions.json")
+	if err != nil {
+		t.Error("error loading questions: ", err)
+	}
+	g := CreateTestGame()
+
+	g.AddQuestion(questions[0])
+	g.AddQuestion(questions[1])
+	g.AddQuestion(questions[2])
+
+	assert.False(t, g.IsLastQuestion())
+
+	g.GoToNextQuestion()
+
+	assert.False(t, g.IsLastQuestion())
+
+	g.GoToNextQuestion()
+
+	assert.True(t, g.IsLastQuestion())
+	fmt.Printf("%+v", g)
 }
