@@ -56,6 +56,7 @@ func NewGameHub(g *captrivia.Game) *GameHub {
 }
 
 func (g *GameHub) Run() {
+	done := make(chan bool, 1)
 	for {
 		select {
 		case client := <-g.register:
@@ -94,15 +95,17 @@ func (g *GameHub) Run() {
 				event = newGameEventPlayerReady(command.payload.GameID, command.player)
 			case PlayerCommandTypeStart:
 				event = newGameEventStart(command.payload.GameID)
-				go g.StartGame()
+				go g.runGame(done)
 			}
-			log.Println(event.Type)
 			g.broadcast <- event.toBytes()
+		case <-done:
+			log.Println("stopping GameHub Run() routine")
+			return
 		}
 	}
 }
 
-func (g *GameHub) StartGame() {
+func (g *GameHub) runGame(done chan<- bool) {
 	g.game.AttachGameEnded(g.gameEnded)
 	// var questionTicker *time.Ticker
 	countdownEvent := newGameEventCountdown(g.game.ID, g.countdown)
@@ -153,6 +156,7 @@ func (g *GameHub) StartGame() {
 			log.Println("end of game, reached last question")
 			gameEndEvent := newGameEventEnd(g.game.ID, g.game.PlayerScores())
 			g.broadcast <- gameEndEvent.toBytes()
+			done <- true
 			return
 		}
 	}

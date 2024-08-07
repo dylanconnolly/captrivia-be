@@ -25,7 +25,7 @@ type Game struct {
 	currentQuestionIndex int
 	questions            []Question
 	scores               map[string]int
-	gameEnded            chan bool
+	gameEnded            chan<- bool
 }
 
 type PlayerScore struct {
@@ -138,6 +138,6 @@ func (g *Game) IncrementPlayerScore(player string) {
 	g.scores[player] += 1
 }
 
-func (g *Game) AttachGameEnded(channel chan bool) {
+func (g *Game) AttachGameEnded(channel chan<- bool) {
 	g.gameEnded = channel
 }
