@@ -2,6 +2,7 @@ package redis
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
@@ -67,6 +68,7 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 		gameKey := fmt.Sprintf(gameKey, id)
 		gameResp, err := s.rdb.HGetAll(ctx, gameKey).Result()
 		if err != nil {
+			log.Println("error getting games")
 			return nil, err
 		}
 

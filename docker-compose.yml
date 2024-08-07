@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  fe:
+    image: captrivia-fe
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:8080
+  be:
+    image: captrivia-be
+    ports:
+      - "8080:8080"
+  redis:
+    image: redis:7.4.0-alpine
+    ports:
+      - "6379:6379"

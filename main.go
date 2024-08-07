@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
 	"net/http"
 
 	"github.com/dylanconnolly/captrivia-be/redis"
@@ -14,7 +15,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&listen, "listen", "localhost:8080", "Listen address")
+	flag.StringVar(&listen, "listen", ":8080", "Listen address")
 	flag.Parse()
 
 	ctx, _ := context.WithCancel(context.Background())
@@ -29,7 +30,13 @@ func main() {
 	// }
 	go app.hub.Run(ctx)
 
-	app.httpServer.ListenAndServe()
+	log.Println("starting server")
+	log.Println("listening on ", app.httpServer.Addr)
+
+	err := app.httpServer.ListenAndServe()
+	if err != nil {
+		log.Fatalf("failed to listen: %s", err)
+	}
 
 	// <-ctx.Done()
 	// app.Close()

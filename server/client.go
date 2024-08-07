@@ -205,6 +205,7 @@ func (c *Client) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		return r.Header.Get("Origin") == "http://localhost:3000"
 	}
+	log.Println("upgrading to websocket")
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
