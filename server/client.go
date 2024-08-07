@@ -71,9 +71,25 @@ func (c *Client) handleRead(message []byte) {
 	// determine type of incoming message
 	switch cmd.Type {
 	case PlayerCommandTypeCreate:
-		c.handleCreateGame(cmd)
+		var payload PlayerCommandCreate
+
+		err := json.Unmarshal(cmd.Payload, &payload)
+		if err != nil {
+			log.Printf("error unmarshalling create game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
+			c.send <- []byte("could not parse command payload")
+		}
+
+		c.handleCreateGame(payload)
 	case PlayerCommandTypeJoin:
-		c.handleJoinGame(cmd)
+		var payload PlayerLobbyCommand
+
+		err := json.Unmarshal(cmd.Payload, &payload)
+		if err != nil {
+			log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
+			c.send <- []byte("could not parse command payload")
+			return
+		}
+		c.handleJoinGame(payload)
 	case PlayerCommandTypeReady:
 		c.handlePlayerReady(cmd)
 	case PlayerCommandTypeStart:
@@ -83,15 +99,7 @@ func (c *Client) handleRead(message []byte) {
 	}
 }
 
-func (c *Client) handleCreateGame(cmd PlayerCommand) {
-	var payload PlayerCommandCreate
-
-	err := json.Unmarshal(cmd.Payload, &payload)
-	if err != nil {
-		log.Printf("error unmarshalling create game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
-		c.send <- []byte("could not parse command payload")
-	}
-
+func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 	game := captrivia.NewGame(payload.Name, payload.QuestionCount)
 
 	// redisGame, err := c.hub.db.CreateGame(c.name, payload.Name, payload.QuestionCount)
@@ -99,27 +107,18 @@ func (c *Client) handleCreateGame(cmd PlayerCommand) {
 	// 	log.Printf("error writing to redis: %s", err)
 	// 	return
 	// }
+	gh := NewGameHub(game)
 
 	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)
 	c.hub.broadcast <- ge.toBytes()
 
 	// create GameHub to manage game and client
-	gh := NewGameHub(game)
-	go gh.Run()
+	go gh.Run(c.hub.gameEvents)
 	gh.register <- c
 	gameHubs[gh.id] = gh
 }
 
-func (c *Client) handleJoinGame(cmd PlayerCommand) {
-	var payload PlayerLobbyCommand
-
-	err := json.Unmarshal(cmd.Payload, &payload)
-	if err != nil {
-		log.Printf("error unmarshalling join game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
-		c.send <- []byte("could not parse command payload")
-		return
-	}
-
+func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
 	if gameHub, ok := gameHubs[payload.GameID]; ok {
 		gameHub.register <- c
 	} else {

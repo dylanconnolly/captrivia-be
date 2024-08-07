@@ -2,7 +2,6 @@ package captrivia_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
@@ -107,9 +106,7 @@ func TestIsLastQuestion(t *testing.T) {
 	}
 	g := CreateTestGame()
 
-	g.AddQuestion(questions[0])
-	g.AddQuestion(questions[1])
-	g.AddQuestion(questions[2])
+	g.AddQuestions(questions)
 
 	assert.False(t, g.IsLastQuestion())
 
@@ -120,5 +117,4 @@ func TestIsLastQuestion(t *testing.T) {
 	g.GoToNextQuestion()
 
 	assert.True(t, g.IsLastQuestion())
-	fmt.Printf("%+v", g)
 }

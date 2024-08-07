@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/dylanconnolly/captrivia-be/redis"
+	"github.com/google/uuid"
 )
 
 type GameServer struct {
@@ -15,6 +17,24 @@ type GameServer struct {
 
 func NewGameServer(hub *Hub) *GameServer {
 	return &GameServer{hub: hub}
+}
+
+type HttpGameResp struct {
+	ID            uuid.UUID           `json:"id"`
+	Name          string              `json:"name"`
+	PlayerCount   int                 `json:"player_count"`
+	QuestionCount int                 `json:"question_count"`
+	State         captrivia.GameState `json:"state"`
+}
+
+func GameToHTTPResp(g captrivia.Game) HttpGameResp {
+	return HttpGameResp{
+		g.ID,
+		g.Name,
+		g.PlayerCount,
+		g.QuestionCount,
+		g.State,
+	}
 }
 
 // Games writes the existing games to the response.

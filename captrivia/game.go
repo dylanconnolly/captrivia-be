@@ -7,11 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type GameState string
+
 const (
-	GameStateWaiting   = "waiting"
-	GameStateCountdown = "countdown"
-	GameStateQuestion  = "question"
-	GameStateEnded     = "ended"
+	GameStateWaiting   GameState = "waiting"
+	GameStateCountdown GameState = "countdown"
+	GameStateQuestion  GameState = "question"
+	GameStateEnded     GameState = "ended"
 )
 
 type Game struct {
@@ -20,7 +22,7 @@ type Game struct {
 	PlayersReady  map[string]bool `json:"players_ready"`
 	PlayerCount   int             `json:"player_count"`
 	QuestionCount int             `json:"question_count"`
-	State         string          `json:"state"`
+	State         GameState       `json:"state"`
 
 	currentQuestionIndex int
 	questions            []Question
@@ -91,8 +93,8 @@ func (g *Game) RemovePlayer(player string) {
 	g.PlayerCount--
 }
 
-func (g *Game) AddQuestion(q Question) {
-	g.questions = append(g.questions, q)
+func (g *Game) AddQuestions(questions []Question) {
+	g.questions = append(g.questions, questions...)
 }
 
 func (g *Game) PlayerScores() []PlayerScore {
