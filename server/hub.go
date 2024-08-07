@@ -17,7 +17,7 @@ type Hub struct {
 	// clients stores only clients that are not actively in a game/lobby
 	clients     map[*Client]bool
 	clientNames map[string]bool
-	close       chan *Client
+	disconnect  chan *Client
 	gameEvents  chan GameEvent
 	register    chan *Client
 	unregister  chan *Client
@@ -29,7 +29,7 @@ func NewHub(gs captrivia.GameService) *Hub {
 		GameService: gs,
 		broadcast:   make(chan []byte),
 		clients:     make(map[*Client]bool),
-		close:       make(chan *Client),
+		disconnect:  make(chan *Client),
 		clientNames: make(map[string]bool),
 		gameEvents:  make(chan GameEvent),
 		register:    make(chan *Client),
@@ -67,11 +67,13 @@ func (h *Hub) Run(ctx context.Context) {
 				}
 			}
 			fmt.Println(event)
-		case client := <-h.close:
+		case client := <-h.disconnect:
 			delete(h.allClients, client)
 			delete(h.clients, client)
 			delete(h.clientNames, client.name)
-			close(client.send)
+			pe := newPlayerEventDisconnect(client.name)
+			h.broadcast <- pe.toBytes()
+			client.Close()
 		case <-ctx.Done():
 			fmt.Println("stopping Hub goroutine")
 			return

@@ -64,6 +64,15 @@ type PlayerEvent struct {
 	Type    PlayerEventType `json:"type"`
 }
 
+func (e PlayerEvent) toBytes() []byte {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		log.Printf("error marshalling %s for gameID=%s. Err: %s", e.Type, e.Player, err)
+		return []byte("error marshalling GameEvent response")
+	}
+	return bytes
+}
+
 // Payload to be sent to client when a new game is created
 type GameEventCreate struct {
 	Name          string `json:"name"`
@@ -226,7 +235,7 @@ func newGameEvent(gameID uuid.UUID, payload EventPayload, eventType GameEventTyp
 
 func newGameEventPlayerEnter(player string, game *captrivia.Game) GameEvent {
 	payload := GameEventPlayerEnter{
-		Name:          player,
+		Name:          game.Name,
 		Players:       game.PlayerNames(),
 		PlayersReady:  game.PlayersReady,
 		QuestionCount: game.QuestionCount,

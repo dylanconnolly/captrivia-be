@@ -30,16 +30,11 @@ func main() {
 	// }
 	go app.hub.Run(ctx)
 
-	log.Println("starting server")
 	log.Println("listening on ", app.httpServer.Addr)
-
 	err := app.httpServer.ListenAndServe()
 	if err != nil {
 		log.Fatalf("failed to listen: %s", err)
 	}
-
-	// <-ctx.Done()
-	// app.Close()
 }
 
 type App struct {
@@ -59,22 +54,3 @@ func NewApp() *App {
 		httpServer: httpServer,
 	}
 }
-
-// func (a *App) Close() error {
-// 	if a.hub != nil {
-// 		a.hub.Close()
-// 	}
-// 	return nil
-// }
-
-// func (a *App) Run(ctx context.Context) error {
-// 	go a.hub.Run(ctx)
-
-// 	err := a.httpServer.ListenAndServe()
-// 	if err != nil {
-// 		log.Fatal("HTTPServer failed to listen")
-// 		return err
-// 	}
-
-// 	return nil
-// }

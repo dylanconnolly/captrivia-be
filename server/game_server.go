@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
-	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
@@ -70,9 +69,8 @@ func (g *GameServer) Connect(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	c := newClient(name, g.hub, redis.NewClient())
-	c.serveWebsocket(w, r)
+	c := NewClient(name, g.hub)
+	c.ServeWebsocket(w, r)
 }
 
 func (g *GameServer) Leaderboard(w http.ResponseWriter, r *http.Request) {

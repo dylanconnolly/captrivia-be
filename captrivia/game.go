@@ -2,7 +2,6 @@ package captrivia
 
 import (
 	"encoding/json"
-	"log"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -103,14 +102,14 @@ func newGame(name string, qCount int) *Game {
 func NewGame(name string, qCount int) *Game {
 	game := newGame(name, qCount)
 
-	questions, err := LoadQuestions("questions.json")
-	if err != nil {
-		log.Println("error loading questions to game")
-		return nil
-	}
+	// questions, err := LoadQuestions("questions.json")
+	// if err != nil {
+	// 	log.Println("error loading questions to game")
+	// 	return nil
+	// }
 
-	shuffled := ShuffleQuestions(questions, qCount)
-	game.questions = shuffled
+	// shuffled := ShuffleQuestions(questions, qCount)
+	// game.questions = shuffled
 
 	return game
 }
