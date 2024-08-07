@@ -1,18 +1,19 @@
 package server
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/dylanconnolly/captrivia-be/redis"
+	"github.com/dylanconnolly/captrivia-be/captrivia"
 )
 
 // Hub tracks all active websocket clients and broadcasts
 // messages to each client.
 type Hub struct {
 	// allClients stores all active clients
-	allClients map[*Client]bool
-	db         *redis.DB
-	broadcast  chan []byte
+	allClients  map[*Client]bool
+	GameService captrivia.GameService
+	broadcast   chan []byte
 	// clients stores only clients that are not actively in a game/lobby
 	clients     map[*Client]bool
 	clientNames map[string]bool
@@ -22,10 +23,10 @@ type Hub struct {
 	unregister  chan *Client
 }
 
-func NewHub(db *redis.DB) *Hub {
+func NewHub(gs captrivia.GameService) *Hub {
 	return &Hub{
 		allClients:  make(map[*Client]bool),
-		db:          db,
+		GameService: gs,
 		broadcast:   make(chan []byte),
 		clients:     make(map[*Client]bool),
 		close:       make(chan *Client),
@@ -36,7 +37,7 @@ func NewHub(db *redis.DB) *Hub {
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Hub) Run(ctx context.Context) {
 	for {
 		select {
 		case client := <-h.register:
@@ -71,6 +72,32 @@ func (h *Hub) Run() {
 			delete(h.clients, client)
 			delete(h.clientNames, client.name)
 			close(client.send)
+		case <-ctx.Done():
+			fmt.Println("stopping Hub goroutine")
+			return
 		}
 	}
 }
+
+// func (h *Hub) Close() {
+// 	for client := range h.allClients {
+// 		close(client.send)
+// 	}
+// 	clear(h.allClients)
+// 	clear(h.clients)
+// 	clear(h.clientNames)
+
+// 	close(h.broadcast)
+// 	// if _, ok := <-h.close; ok {
+// 	close(h.close)
+// 	// }
+// 	// if _, ok := <-h.gameEvents; ok {
+// 	close(h.gameEvents)
+// 	// }
+// 	// if _, ok := <-h.register; ok {
+// 	close(h.register)
+// 	// }
+// 	// if _, ok := <-h.unregister; ok {
+// 	close(h.unregister)
+// 	// }
+// }

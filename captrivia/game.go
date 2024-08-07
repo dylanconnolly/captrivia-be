@@ -3,6 +3,7 @@ package captrivia
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -35,6 +36,11 @@ type PlayerScore struct {
 	Score int    `json:"score"`
 }
 
+type GameService interface {
+	SaveGame(g *Game) error
+	GetGames() ([]RepositoryGame, error)
+}
+
 func (g Game) MarshalJSON() ([]byte, error) {
 	type Alias Game
 	return json.Marshal(&struct {
@@ -53,6 +59,34 @@ func (g Game) PlayerNames() []string {
 	}
 
 	return names
+}
+
+type RepositoryGame struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	PlayerCount   int       `json:"player_count"`
+	QuestionCount int       `json:"question_count"`
+	State         GameState `json:"state"`
+}
+
+func (g Game) ToRepositoryGame() RepositoryGame {
+	return RepositoryGame{
+		ID:            g.ID,
+		Name:          g.Name,
+		PlayerCount:   g.PlayerCount,
+		QuestionCount: g.QuestionCount,
+		State:         g.State,
+	}
+}
+
+func (g RepositoryGame) ToHash() map[string]string {
+	return map[string]string{
+		"id":             g.ID.String(),
+		"name":           g.Name,
+		"player_count":   strconv.Itoa(g.PlayerCount),
+		"question_count": strconv.Itoa(g.QuestionCount),
+		"state":          string(g.State),
+	}
 }
 
 func newGame(name string, qCount int) *Game {

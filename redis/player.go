@@ -1,10 +1,7 @@
 package redis
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type PlayerGames []string
@@ -19,27 +16,27 @@ type Player struct {
 	UpdatedAt           time.Time `json:"last_update"`
 }
 
-func (db *DB) addPlayerToGame(player string, gameID uuid.UUID) error {
-	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
+// func (db *DB) addPlayerToGame(player string, gameID uuid.UUID) error {
+// 	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
 
-	err := db.client.SAdd(ctx, playerGamesKey, gameID.String()).Err()
-	if err != nil {
-		return err
-	}
+// 	err := db.client.SAdd(ctx, playerGamesKey, gameID.String()).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (db *DB) getPlayerGames(player string) (PlayerGames, error) {
-	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
+// func (db *DB) getPlayerGames(player string) (PlayerGames, error) {
+// 	playerGamesKey := fmt.Sprintf(playerGamesKey, player)
 
-	gameIDs, err := db.client.SMembers(ctx, playerGamesKey).Result()
-	if err != nil {
-		return nil, err
-	}
+// 	gameIDs, err := db.client.SMembers(ctx, playerGamesKey).Result()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return gameIDs, err
-}
+// 	return gameIDs, err
+// }
 
 // func (db *DB) removePlayerFromGame(player string, gameID uuid.UUID) error {
 // 	playerGamesKey := fmt.Sprintf(playerGamesKey, player)

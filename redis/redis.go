@@ -2,19 +2,11 @@ package redis
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/dylanconnolly/captrivia-be/captrivia"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	gameStateWaiting   = "waiting"
-	gameStateCountdown = "countdown"
-	gameStateQuestion  = "question"
-	gameStateEnded     = "ended"
-
 	gameKey             string = "game:%s"
 	gamePlayersKey      string = "game:%s:players"
 	gamePlayersReadyKey string = "game:%s:players:ready"
@@ -27,17 +19,7 @@ const (
 
 var ctx = context.Background()
 
-type DB struct {
-	client *redis.Client
-}
-
 type Question struct {
-}
-
-func NewDB() *DB {
-	return &DB{
-		client: NewClient(),
-	}
 }
 
 func NewClient() *redis.Client {
@@ -50,103 +32,103 @@ func NewClient() *redis.Client {
 	return rdb
 }
 
-func (db *DB) AddPlayerToGame(id uuid.UUID, player string) error {
-	pKey := fmt.Sprintf(gamePlayersKey, id)
-	pReadyKey := fmt.Sprintf(gamePlayersReadyKey, id)
+// func (db *DB) AddPlayerToGame(id uuid.UUID, player string) error {
+// 	pKey := fmt.Sprintf(gamePlayersKey, id)
+// 	pReadyKey := fmt.Sprintf(gamePlayersReadyKey, id)
 
-	err := db.client.SAdd(ctx, pKey, player).Err()
-	if err != nil {
-		return err
-	}
+// 	err := db.client.SAdd(ctx, pKey, player).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = db.client.HSet(ctx, pReadyKey, player, false).Err()
-	if err != nil {
-		return err
-	}
+// 	err = db.client.HSet(ctx, pReadyKey, player, false).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = db.addPlayerToGame(player, id)
-	if err != nil {
-		return err
-	}
+// 	err = db.addPlayerToGame(player, id)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (db *DB) PlayerReady(id uuid.UUID, player string) error {
-	key := fmt.Sprintf(gamePlayersReadyKey, id)
+// func (db *DB) PlayerReady(id uuid.UUID, player string) error {
+// 	key := fmt.Sprintf(gamePlayersReadyKey, id)
 
-	err := db.client.HSet(ctx, key, player, true).Err()
-	if err != nil {
-		return err
-	}
+// 	err := db.client.HSet(ctx, key, player, true).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (db *DB) RemovePlayerFromGame(id uuid.UUID, player string) error {
-	gamePlayersKey := fmt.Sprintf(gamePlayersKey, id)
-	gamePlayersReadyKey := fmt.Sprintf(gamePlayersReadyKey, player)
+// func (db *DB) RemovePlayerFromGame(id uuid.UUID, player string) error {
+// 	gamePlayersKey := fmt.Sprintf(gamePlayersKey, id)
+// 	gamePlayersReadyKey := fmt.Sprintf(gamePlayersReadyKey, player)
 
-	err := db.client.SRem(ctx, gamePlayersKey, player).Err()
-	if err != nil {
-		return err
-	}
+// 	err := db.client.SRem(ctx, gamePlayersKey, player).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	err = db.client.HDel(ctx, gamePlayersReadyKey, player).Err()
-	if err != nil {
-		return err
-	}
+// 	err = db.client.HDel(ctx, gamePlayersReadyKey, player).Err()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (db *DB) RemovePlayerFromCreatedGames(player string) error {
-	gameIDs, err := db.getPlayerGames(player)
-	if err != nil {
-		return err
-	}
-	for _, g := range gameIDs {
-		id, _ := uuid.Parse(g)
-		err = db.RemovePlayerFromGame(id, player)
-		db.client.SRem(ctx, playerGamesKey, id)
-		// need to expire the game and remove it
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (db *DB) RemovePlayerFromCreatedGames(player string) error {
+// 	gameIDs, err := db.getPlayerGames(player)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for _, g := range gameIDs {
+// 		id, _ := uuid.Parse(g)
+// 		err = db.RemovePlayerFromGame(id, player)
+// 		db.client.SRem(ctx, playerGamesKey, id)
+// 		// need to expire the game and remove it
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (db *DB) LoadQuestionsFromFile(filename string) error {
-	questions, err := captrivia.LoadQuestions(filename)
-	if err != nil {
-		return err
-	}
+// func (db *DB) LoadQuestionsFromFile(filename string) error {
+// 	questions, err := captrivia.LoadQuestions(filename)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	for _, q := range questions {
-		questionKey := fmt.Sprintf(questionKey, q.ID)
-		err := db.client.HSet(ctx, questionKey, map[string]interface{}{
-			"id":            q.ID,
-			"question_text": q.QuestionText,
-			"correct_index": q.CorrectIndex,
-		}).Err()
-		if err != nil {
-			return err
-		}
+// 	for _, q := range questions {
+// 		questionKey := fmt.Sprintf(questionKey, q.ID)
+// 		err := db.client.HSet(ctx, questionKey, map[string]interface{}{
+// 			"id":            q.ID,
+// 			"question_text": q.QuestionText,
+// 			"correct_index": q.CorrectIndex,
+// 		}).Err()
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// set to track all question IDs and randomly choose questions for games
-		db.client.SAdd(ctx, allQuestionsKey, q.ID)
+// 		// set to track all question IDs and randomly choose questions for games
+// 		db.client.SAdd(ctx, allQuestionsKey, q.ID)
 
-		optionsKey := fmt.Sprintf(questionOptionsKey, q.ID)
+// 		optionsKey := fmt.Sprintf(questionOptionsKey, q.ID)
 
-		for _, option := range q.Options {
-			err := db.client.RPush(ctx, optionsKey, option).Err()
-			if err != nil {
-				return err
-			}
-			// lazily trimming options list to be size of JSON question options after each startup
-			db.client.LTrim(ctx, optionsKey, 0, int64(len(q.Options)-1))
-		}
-	}
-	return nil
-}
+// 		for _, option := range q.Options {
+// 			err := db.client.RPush(ctx, optionsKey, option).Err()
+// 			if err != nil {
+// 				return err
+// 			}
+// 			// lazily trimming options list to be size of JSON question options after each startup
+// 			db.client.LTrim(ctx, optionsKey, 0, int64(len(q.Options)-1))
+// 		}
+// 	}
+// 	return nil
+// }

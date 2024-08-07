@@ -27,7 +27,7 @@ type HttpGameResp struct {
 	State         captrivia.GameState `json:"state"`
 }
 
-func GameToHTTPResp(g captrivia.Game) HttpGameResp {
+func GameToHTTPResp(g captrivia.RepositoryGame) HttpGameResp {
 	return HttpGameResp{
 		g.ID,
 		g.Name,
@@ -43,7 +43,7 @@ func (g *GameServer) Games(w http.ResponseWriter, r *http.Request) {
 	// that the frontend expects
 	var httpGames []HttpGameResp
 
-	games, err := g.hub.db.GetAllGames()
+	games, err := g.hub.GameService.GetGames()
 	if err != nil {
 		log.Println(err)
 		writeJSON(w, http.StatusInternalServerError, httpGames)

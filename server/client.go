@@ -42,7 +42,7 @@ func (c *Client) readMessage() {
 		log.Println("disconnected client, sending event")
 		pe := newPlayerEventDisconnect(c.name)
 		msg, _ := json.Marshal(pe)
-		c.hub.unregister <- c
+		c.hub.close <- c
 		c.conn.Close()
 		c.hub.broadcast <- msg
 	}()
@@ -101,13 +101,7 @@ func (c *Client) handleRead(message []byte) {
 
 func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 	game := captrivia.NewGame(payload.Name, payload.QuestionCount)
-
-	// redisGame, err := c.hub.db.CreateGame(c.name, payload.Name, payload.QuestionCount)
-	// if err != nil {
-	// 	log.Printf("error writing to redis: %s", err)
-	// 	return
-	// }
-	gh := NewGameHub(game)
+	gh := NewGameHub(game, c.hub.GameService)
 
 	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)
 	c.hub.broadcast <- ge.toBytes()
