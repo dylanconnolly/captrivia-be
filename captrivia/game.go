@@ -3,6 +3,7 @@ package captrivia
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -110,10 +111,12 @@ func newGame(name string, qCount int) *Game {
 func NewGame(name string, qCount int) (*Game, error) {
 	game := newGame(name, qCount)
 
-	// file, err := filepath.Abs("../questions.json")
 	wd, _ := os.Getwd()
 	wd = filepath.Dir(wd)
-	filePath := fmt.Sprintf("%s/captrivia-be/questions.json", wd)
+	// filePath := fmt.Sprintf("%s/captrivia-be/questions.json", wd)
+	filePath := fmt.Sprintf("%s/questions.json", wd)
+
+	log.Println("filepath: ", filePath)
 
 	questions, err := LoadQuestions(filePath)
 	if err != nil {

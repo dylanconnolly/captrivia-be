@@ -37,7 +37,7 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 	return &GameHub{
 		ID:           g.ID,
 		Answers:      make(chan GameAnswer),
-		Broadcast:    make(chan []byte, 256),
+		Broadcast:    make(chan []byte, 50),
 		Clients:      make(map[*Client]bool),
 		Commands:     make(chan GameLobbyCommand),
 		countdownSec: countdownSec,
@@ -70,9 +70,9 @@ func (g *GameHub) Run(ctx context.Context) {
 			g.mu.Lock()
 			for client := range g.Clients {
 				select {
-				case client.send <- message:
+				case client.Send <- message:
 				default:
-					close(client.send)
+					close(client.Send)
 					delete(g.Clients, client)
 				}
 			}
@@ -116,11 +116,13 @@ func (g *GameHub) Run(ctx context.Context) {
 // GameEvents to be broadcast to the game lobby
 func (g *GameHub) playerJoin(client *Client) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	g.game.AddPlayer(client.name)
 	g.gameService.SaveGame(g.game)
 
 	enterEvent := newGameEventPlayerEnter(client.name, g.game)
-	client.send <- enterEvent.toBytes()
+	client.Send <- enterEvent.toBytes()
 
 	// unregister player from hub broadcasts
 	client.hub.unregister <- client
@@ -130,13 +132,16 @@ func (g *GameHub) playerJoin(client *Client) {
 
 	playerCountEvent := newGameEventPlayerCount(g.game.ID, g.game.PlayerCount)
 	g.hubBroadcast <- playerCountEvent
-	g.mu.Unlock()
 }
 
 // Helper function to remove a player from GameHub + Game, and re-register
 // the client to the Hub
 func (g *GameHub) playerLeave(client *Client) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+	if _, ok := g.Clients[client]; !ok {
+		return
+	}
 	delete(g.Clients, client)
 	g.game.RemovePlayer(client.name)
 	g.gameService.SaveGame(g.game)
@@ -146,7 +151,6 @@ func (g *GameHub) playerLeave(client *Client) {
 
 	leaveEvent := newGameEventPlayerLeave(g.game.ID, client.name)
 	g.Broadcast <- leaveEvent.toBytes()
-	g.mu.Unlock()
 }
 
 // Runs the main trivia game loop. Listens for answers from client and handles

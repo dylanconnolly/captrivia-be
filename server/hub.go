@@ -33,7 +33,7 @@ type Hub struct {
 
 func NewHub(gs captrivia.GameService, countdownSec int, questionSec int) *Hub {
 	return &Hub{
-		allBroadcast: make(chan []byte, 20),
+		allBroadcast: make(chan []byte, 100),
 		clients:      make(map[*Client]bool),
 		clientNames:  make(map[string]bool),
 		disconnect:   make(chan *Client),
@@ -43,7 +43,7 @@ func NewHub(gs captrivia.GameService, countdownSec int, questionSec int) *Hub {
 
 		GameService:  gs,
 		gameHubs:     make(map[uuid.UUID]*GameHub),
-		hubBroadcast: make(chan GameEvent, 15),
+		hubBroadcast: make(chan GameEvent, 25),
 		CountdownSec: countdownSec,
 		QuestionSec:  questionSec,
 	}
@@ -62,19 +62,19 @@ func (h *Hub) Run(ctx context.Context) {
 		case message := <-h.allBroadcast:
 			for client := range h.clients {
 				select {
-				case client.send <- message:
+				case client.Send <- message:
 				default:
-					close(client.send)
+					close(client.Send)
 					delete(h.clients, client)
 				}
 			}
-		// send game state changes to clients which are not actively in a game
 		case event := <-h.hubBroadcast:
+			// send game state changes to clients which are not actively in a game
 			for client := range h.hubClients {
 				select {
-				case client.send <- event.toBytes():
+				case client.Send <- event.toBytes():
 				default:
-					close(client.send)
+					close(client.Send)
 					delete(h.clients, client)
 				}
 			}
@@ -88,7 +88,9 @@ func (h *Hub) Run(ctx context.Context) {
 			delete(h.clientNames, client.name)
 			h.mu.Unlock()
 			client.mu.Lock()
-			close(client.send)
+			if !client.closed {
+				close(client.Send)
+			}
 			client.mu.Unlock()
 		case <-ctx.Done():
 			log.Println("stopping Hub goroutine.")

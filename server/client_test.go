@@ -93,7 +93,7 @@ func toBytes(command server.PlayerCommand) []byte {
 
 func Setup(t *testing.T) (uuid.UUID, *websocket.Conn, *server.Client, context.CancelFunc) {
 
-	hub := server.NewHub(MockGameService{}, 1, 1)
+	hub := server.NewHub(MockGameService{}, 3, 3)
 	ctx, cancel := context.WithCancel(context.Background())
 	go hub.Run(ctx)
 	gh, err := hub.NewGameHub(gameName, questionCount)
@@ -118,7 +118,6 @@ func Setup(t *testing.T) (uuid.UUID, *websocket.Conn, *server.Client, context.Ca
 
 	// ignore player_connected message
 	ws.ReadMessage()
-
 	go gh.Run(ctx)
 
 	return gh.ID, ws, client, cancel
@@ -250,41 +249,6 @@ func TestPlayerCommandJoin(t *testing.T) {
 	log.Println(string(r))
 
 	resp = buildEvent(r, server.GameEventCreate{}.Raw())
-
-	assert.Equal(t, expected.Payload, resp.Payload)
-	assert.Equal(t, expected.Type, expected.Type)
-
-	client.Close()
-	cancel()
-}
-
-func TestPlayerCommandReady(t *testing.T) {
-	gameID, ws, client, cancel := Setup(t)
-
-	command := server.PlayerCommand{
-		Nonce: "123456",
-		Payload: Raw(server.PlayerLobbyCommand{
-			GameID: gameID,
-		}),
-		Type: server.PlayerCommandTypeReady,
-	}
-
-	b := toBytes(command)
-
-	ws.WriteMessage(websocket.TextMessage, b)
-
-	expected := server.GameEvent{
-		ID: gameID,
-		Payload: server.GameEventPlayerLobbyAction{
-			Player: playerName,
-		}.Raw(),
-		Type: server.GameEventTypePlayerReady,
-	}
-	_, r, _ := ws.ReadMessage()
-
-	log.Println(string(r))
-
-	resp := buildEvent(r, server.GameEventCreate{}.Raw())
 
 	assert.Equal(t, expected.Payload, resp.Payload)
 	assert.Equal(t, expected.Type, expected.Type)

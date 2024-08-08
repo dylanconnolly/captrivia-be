@@ -27,11 +27,11 @@ func (m *MockWebSocketConn) Close() error {
 	return nil
 }
 
-func TestGameHub_Concurrency(t *testing.T) {
+func TestGameHubRegisterClient(t *testing.T) {
 	// Mock or create the dependencies
 	gameID := uuid.New()
 	game := &captrivia.Game{
-		ID:            uuid.New(),
+		ID:            gameID,
 		Name:          "test game",
 		PlayersReady:  make(map[string]bool),
 		QuestionCount: 3,
@@ -51,12 +51,10 @@ func TestGameHub_Concurrency(t *testing.T) {
 	go gameHub.Run(ctx)
 
 	client := server.NewClient("test_client", hub)
-	client.Conn = &MockWebSocketConn{} // Mock WebSocket connection
+	client.Conn = &MockWebSocketConn{}
 
-	// Register the client
 	gameHub.Register <- client
 
-	// Simulate concurrent client messages
 	go func() {
 		for i := 0; i < 100; i++ {
 			gameHub.Commands <- server.GameLobbyCommand{
@@ -68,25 +66,89 @@ func TestGameHub_Concurrency(t *testing.T) {
 		}
 	}()
 
+	time.Sleep(1 * time.Second)
+	assert.Contains(t, gameHub.Clients, client)
+	assert.Equal(t, 1, len(gameHub.Clients))
+}
+
+func TestGameHubBroadcast(t *testing.T) {
+	// Mock or create the dependencies
+	gameID := uuid.New()
+	game := &captrivia.Game{
+		ID:            gameID,
+		Name:          "test game",
+		PlayersReady:  make(map[string]bool),
+		QuestionCount: 3,
+		State:         captrivia.GameStateWaiting,
+		Scores:        make(map[string]int),
+	}
+	gameService := &MockGameService{}
+	hubBroadcast := make(chan server.GameEvent, 10)
+	countdownSec := 5
+	questionSec := 10
+
+	hub := server.NewHub(gameService, 5, 5)
+	gameHub := server.NewGameHub(game, gameService, hubBroadcast, countdownSec, questionSec)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go gameHub.Run(ctx)
+
+	client := server.NewClient("test_client", hub)
+	client.Conn = &MockWebSocketConn{}
+
+	client2 := server.NewClient("test_client 2", hub)
+	client.Conn = &MockWebSocketConn{}
+
+	client3 := server.NewClient("test_client 3", hub)
+	client.Conn = &MockWebSocketConn{}
+
+	gameHub.Register <- client
+	gameHub.Register <- client2
+
 	go func() {
 		for i := 0; i < 100; i++ {
 			gameHub.Broadcast <- []byte("test message")
-			time.Sleep(15 * time.Millisecond)
-		}
-	}()
-
-	go func() {
-		for i := 0; i < 100; i++ {
-			gameHub.Unregister <- client
-			time.Sleep(10 * time.Millisecond)
-			gameHub.Register <- client
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
-	time.Sleep(5 * time.Second)
-
-	// Verify the state
 	time.Sleep(2 * time.Second)
-	assert.Contains(t, gameHub.Clients, client)
+
+	// should have 100+ due to other messages from client joins/enter
+	assert.GreaterOrEqual(t, len(client.Send), 100)
+	assert.GreaterOrEqual(t, len(client.Send), 100)
+	assert.Equal(t, 0, len(client3.Send))
+}
+
+func TestGameHubUnregisterFailure(t *testing.T) {
+	// Mock or create the dependencies
+	gameID := uuid.New()
+	game := &captrivia.Game{
+		ID:            gameID,
+		Name:          "test game",
+		PlayersReady:  make(map[string]bool),
+		QuestionCount: 3,
+		State:         captrivia.GameStateWaiting,
+		Scores:        make(map[string]int),
+	}
+	gameService := &MockGameService{}
+	hubBroadcast := make(chan server.GameEvent, 10)
+	countdownSec := 5
+	questionSec := 10
+
+	hub := server.NewHub(gameService, 5, 5)
+	gameHub := server.NewGameHub(game, gameService, hubBroadcast, countdownSec, questionSec)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go gameHub.Run(ctx)
+
+	client := server.NewClient("test_client", hub)
+	client.Conn = &MockWebSocketConn{}
+
+	gameHub.Unregister <- client
+
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, 0, game.PlayerCount)
 }

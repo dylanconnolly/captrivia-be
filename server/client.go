@@ -63,7 +63,8 @@ type Client struct {
 	hub     *Hub
 	mu      sync.Mutex
 	Conn    WebSocketConn
-	send    chan []byte
+	Send    chan []byte
+	closed  bool
 }
 
 // Creates a new client but does not attach websocket connection. Running serveWebsocket() upgrades connection and begins
@@ -72,7 +73,7 @@ func NewClient(name string, hub *Hub) *Client {
 	c := &Client{
 		name: name,
 		hub:  hub,
-		send: make(chan []byte, 256),
+		Send: make(chan []byte, 256),
 	}
 
 	return c
@@ -101,7 +102,7 @@ func (c *Client) handleRead(message []byte) {
 	err := json.Unmarshal(message, &cmd)
 	if err != nil {
 		log.Printf("error unmarshalling command: %s. Error: %s", message, err)
-		c.send <- []byte("could not parse command payload")
+		c.Send <- []byte("could not parse command payload")
 		// c.mu.Unlock()
 		return
 	}
@@ -113,7 +114,7 @@ func (c *Client) handleRead(message []byte) {
 		err := json.Unmarshal(cmd.Payload, &payload)
 		if err != nil {
 			log.Printf("error unmarshalling create game command payload: %s\n Client: %s Command: %s", err, c.name, cmd)
-			c.send <- []byte("could not parse command payload")
+			c.Send <- []byte("could not parse command payload")
 			// c.mu.Unlock()
 			return
 		}
@@ -124,7 +125,7 @@ func (c *Client) handleRead(message []byte) {
 		err := json.Unmarshal(cmd.Payload, &payload)
 		if err != nil {
 			log.Printf("error unmarshalling join game command payload: %s\n Client: %s Command: %s", err, c.name, cmd)
-			c.send <- []byte("could not parse command payload")
+			c.Send <- []byte("could not parse command payload")
 			// c.mu.Unlock()
 			return
 		}
@@ -135,7 +136,7 @@ func (c *Client) handleRead(message []byte) {
 		err := json.Unmarshal(cmd.Payload, &payload)
 		if err != nil {
 			log.Print(err)
-			c.send <- []byte("error unmarshalling payload for player ready command")
+			c.Send <- []byte("error unmarshalling payload for player ready command")
 			// c.mu.Unlock()
 		}
 
@@ -146,7 +147,7 @@ func (c *Client) handleRead(message []byte) {
 		err := json.Unmarshal(cmd.Payload, &payload)
 		if err != nil {
 			log.Printf("error unmarshalling start game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
-			c.send <- []byte("could not parse command payload")
+			c.Send <- []byte("could not parse command payload")
 			// c.mu.Unlock()
 			return
 		}
@@ -158,7 +159,7 @@ func (c *Client) handleRead(message []byte) {
 		err := json.Unmarshal(cmd.Payload, &payload)
 		if err != nil {
 			log.Printf("error unmarshalling player answer: %s\n Client: %+v Command: %s", err, c, cmd)
-			c.send <- []byte("could not parse command payload")
+			c.Send <- []byte("could not parse command payload")
 			// c.mu.Unlock()
 			return
 		}
@@ -246,7 +247,7 @@ func (c *Client) handlePlayerAnswer(payload PlayerCommandAnswer) {
 
 func (c *Client) writeMessage() {
 	defer c.Conn.Close()
-	for message := range c.send {
+	for message := range c.Send {
 		// if !ok {
 		// 	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 		// 	return
@@ -283,6 +284,9 @@ func (c *Client) ServeWebsocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Client) Close() {
+	c.mu.Lock()
+	c.closed = true
+	c.mu.Unlock()
 	log.Printf("player %s disconnect - client connection closed", c.name)
 	c.hub.disconnect <- c
 	pe := newPlayerEventDisconnect(c.name)
