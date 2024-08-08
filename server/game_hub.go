@@ -35,7 +35,7 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 	return &GameHub{
 		ID:           g.ID,
 		answers:      make(chan GameAnswer),
-		broadcast:    make(chan []byte, 256), //TODO unbuffered with goroutines?
+		broadcast:    make(chan []byte, 256),
 		clients:      make(map[*Client]bool),
 		commands:     make(chan GameLobbyCommand),
 		countdownSec: countdownSec,
@@ -43,9 +43,9 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 		gameService:  gameService,
 		gameEnded:    g.GameEndedChan(),
 		hubBroadcast: hubBroadcast,
-		register:     make(chan *Client, 5), //TODO unbuffered with goroutines?
+		register:     make(chan *Client, 5),
 		questionSec:  questionSec,
-		unregister:   make(chan *Client, 5), //TODO unbuffered with goroutines?
+		unregister:   make(chan *Client, 5),
 	}
 }
 

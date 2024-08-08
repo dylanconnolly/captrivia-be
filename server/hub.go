@@ -31,17 +31,17 @@ type Hub struct {
 
 func NewHub(gs captrivia.GameService, countdownSec int, questionSec int) *Hub {
 	return &Hub{
-		allBroadcast: make(chan []byte, 20), //TODO unbuffered with goroutines?
+		allBroadcast: make(chan []byte, 20),
 		clients:      make(map[*Client]bool),
 		clientNames:  make(map[string]bool),
 		disconnect:   make(chan *Client),
 		hubClients:   make(map[*Client]bool),
-		register:     make(chan *Client, 10), //TODO unbuffered with goroutines?
-		unregister:   make(chan *Client, 10), //TODO unbuffered with goroutines?
+		register:     make(chan *Client, 10),
+		unregister:   make(chan *Client, 10),
 
 		GameService:  gs,
 		gameHubs:     make(map[uuid.UUID]*GameHub),
-		hubBroadcast: make(chan GameEvent, 15), //TODO unbuffered with goroutines?
+		hubBroadcast: make(chan GameEvent, 15),
 		CountdownSec: countdownSec,
 		QuestionSec:  questionSec,
 	}
