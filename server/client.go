@@ -168,7 +168,6 @@ func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 }
 
 func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
-	log.Println("handling player join")
 	gh, err := c.hub.GetGameHub(payload.GameID)
 	if err != nil {
 		log.Println(err)

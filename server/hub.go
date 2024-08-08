@@ -25,9 +25,11 @@ type Hub struct {
 	GameService  captrivia.GameService
 	gameHubs     map[uuid.UUID]*GameHub
 	hubBroadcast chan GameEvent // used to broadcast GameEvents to clients not in games (GameCreate, GameStateChange, GamePlayerCountChange)
+	CountdownSec int
+	QuestionSec  int
 }
 
-func NewHub(gs captrivia.GameService) *Hub {
+func NewHub(gs captrivia.GameService, countdownSec int, questionSec int) *Hub {
 	return &Hub{
 		allBroadcast: make(chan []byte, 20), //TODO unbuffered with goroutines?
 		clients:      make(map[*Client]bool),
@@ -40,6 +42,8 @@ func NewHub(gs captrivia.GameService) *Hub {
 		GameService:  gs,
 		gameHubs:     make(map[uuid.UUID]*GameHub),
 		hubBroadcast: make(chan GameEvent, 15), //TODO unbuffered with goroutines?
+		CountdownSec: countdownSec,
+		QuestionSec:  questionSec,
 	}
 }
 
@@ -92,7 +96,7 @@ func (h *Hub) NewGameHub(name string, questionCount int) (*GameHub, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating game for game hub: %s", err)
 	}
-	gh := NewGameHub(game, h.GameService, h.hubBroadcast)
+	gh := NewGameHub(game, h.GameService, h.hubBroadcast, h.CountdownSec, h.QuestionSec)
 	h.gameHubs[gh.ID] = gh
 
 	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)

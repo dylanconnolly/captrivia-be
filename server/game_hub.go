@@ -6,36 +6,23 @@ import (
 	"time"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
-	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
-var (
-	GameHubs                              = make(map[uuid.UUID]*GameHub)
-	questionTickerDuration  time.Duration = (time.Duration(questionDuration) * time.Second)
-	countdownTickerDuration time.Duration = (time.Duration(questionCountdown) * time.Second)
-)
-
-const (
-	questionCountdown int = 5
-	questionDuration  int = 20
-)
-
 type GameHub struct {
-	ID        uuid.UUID
-	broadcast chan []byte
-	clients   map[*Client]bool
-	commands  chan GameLobbyCommand
-	countdown int
-	// disconnects      chan *Client
-	game             *captrivia.Game
-	gameService      captrivia.GameService
-	gameEnded        <-chan bool
-	hubBroadcast     chan<- GameEvent // send only channel to push GameEvents to Hub
-	register         chan *Client
-	unregister       chan *Client
-	questionDuration int
-	answers          chan GameAnswer
+	ID           uuid.UUID
+	broadcast    chan []byte
+	clients      map[*Client]bool
+	commands     chan GameLobbyCommand
+	countdownSec int
+	game         *captrivia.Game
+	gameService  captrivia.GameService
+	gameEnded    <-chan bool
+	hubBroadcast chan<- GameEvent // send only channel to push GameEvents to Hub
+	register     chan *Client
+	unregister   chan *Client
+	questionSec  int
+	answers      chan GameAnswer
 }
 
 type GameAnswer struct {
@@ -44,22 +31,21 @@ type GameAnswer struct {
 	Index      int
 }
 
-func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadcast chan<- GameEvent) *GameHub {
+func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadcast chan<- GameEvent, countdownSec int, questionSec int) *GameHub {
 	return &GameHub{
-		ID:        g.ID,
-		answers:   make(chan GameAnswer),
-		broadcast: make(chan []byte, 256), //TODO unbuffered with goroutines?
-		clients:   make(map[*Client]bool),
-		commands:  make(chan GameLobbyCommand),
-		countdown: questionCountdown,
-		// disconnects:      make(chan *Client),
-		game:             g,
-		gameService:      gameService,
-		gameEnded:        g.GameEndedChan(),
-		hubBroadcast:     hubBroadcast,
-		register:         make(chan *Client, 5), //TODO unbuffered with goroutines?
-		questionDuration: questionDuration,
-		unregister:       make(chan *Client, 5), //TODO unbuffered with goroutines?
+		ID:           g.ID,
+		answers:      make(chan GameAnswer),
+		broadcast:    make(chan []byte, 256), //TODO unbuffered with goroutines?
+		clients:      make(map[*Client]bool),
+		commands:     make(chan GameLobbyCommand),
+		countdownSec: countdownSec,
+		game:         g,
+		gameService:  gameService,
+		gameEnded:    g.GameEndedChan(),
+		hubBroadcast: hubBroadcast,
+		register:     make(chan *Client, 5), //TODO unbuffered with goroutines?
+		questionSec:  questionSec,
+		unregister:   make(chan *Client, 5), //TODO unbuffered with goroutines?
 	}
 }
 
@@ -102,11 +88,10 @@ func (g *GameHub) Run(ctx context.Context) {
 			g.broadcast <- event.toBytes()
 
 		case <-done:
-			log.Printf("Setting game TTL in Redis to %d minutes", redis.EndedGameTTL)
 			err := g.gameService.ExpireGame(g.ID)
 
 			if err != nil {
-				log.Printf("error expiring game %s. GameID=%s", err, g.game.ID)
+				log.Printf("error setting game to expire %s . GameID=%s", err, g.game.ID)
 			}
 			log.Printf("GameHub game (%s) completed.", g.game.ID)
 
@@ -156,10 +141,13 @@ func (g *GameHub) playerLeave(client *Client) {
 // Runs the main trivia game loop. Listens for answers from client and handles
 // the tickers used for countdowns and question durations
 func (g *GameHub) runGame(done chan<- bool) {
-	countdownEvent := newGameEventCountdown(g.game.ID, g.countdown)
+	countdownEvent := newGameEventCountdown(g.game.ID, g.countdownSec)
 	g.broadcast <- countdownEvent.toBytes()
-	countdownTicker := time.NewTicker(countdownTickerDuration)
-	questionTicker := time.NewTicker(questionTickerDuration)
+	countdownDuration := time.Duration(g.countdownSec) * time.Second
+	questionDuration := time.Duration(g.questionSec) * time.Second
+
+	countdownTicker := time.NewTicker(countdownDuration)
+	questionTicker := time.NewTicker(questionDuration)
 
 	g.ChangeGameState(captrivia.GameStateCountdown)
 
@@ -171,13 +159,13 @@ func (g *GameHub) runGame(done chan<- bool) {
 		case <-countdownTicker.C: // countdown has completed, display question
 			countdownTicker.Stop()
 			g.handleDisplayQuestion()
-			questionTicker = time.NewTicker(questionTickerDuration)
+			questionTicker = time.NewTicker(questionDuration)
 
 		case <-questionTicker.C: // time expired before a correct answer was provided
 			questionTicker.Stop()
 			g.handleQuestionTimeExpired()
 			g.broadcast <- countdownEvent.toBytes()
-			countdownTicker = time.NewTicker(countdownTickerDuration)
+			countdownTicker = time.NewTicker(countdownDuration)
 
 		case ans := <-g.answers: // player has answered the question
 			correct := g.game.ValidateAnswer(ans.Index)
@@ -192,7 +180,7 @@ func (g *GameHub) runGame(done chan<- bool) {
 				g.game.GoToNextQuestion()
 
 				g.broadcast <- countdownEvent.toBytes()
-				countdownTicker = time.NewTicker(countdownTickerDuration)
+				countdownTicker = time.NewTicker(countdownDuration)
 
 				g.ChangeGameState(captrivia.GameStateCountdown)
 			} else {
@@ -220,7 +208,7 @@ func (g *GameHub) ChangeGameState(state captrivia.GameState) {
 // question to users, and emit game state change to Hub
 func (g *GameHub) handleDisplayQuestion() {
 	q := g.game.CurrentQuestion()
-	questionEvent := newGameEventQuestion(g.game.ID, q, questionDuration)
+	questionEvent := newGameEventQuestion(g.game.ID, q, g.questionSec)
 	g.broadcast <- questionEvent.toBytes()
 
 	g.ChangeGameState(captrivia.GameStateQuestion)

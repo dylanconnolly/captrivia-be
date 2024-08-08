@@ -52,7 +52,7 @@ func buildEvent(resp []byte, v server.EventPayload) server.GameEvent {
 }
 
 func openWebsocketConn(t *testing.T) (*websocket.Conn, *httptest.Server, server.Client) {
-	hub := server.NewHub(MockGameService{})
+	hub := server.NewHub(MockGameService{}, 1, 1)
 	ctx, _ := context.WithCancel(context.Background())
 	go hub.Run(ctx)
 
@@ -93,7 +93,7 @@ func toBytes(command server.PlayerCommand) []byte {
 
 func Setup(t *testing.T) (uuid.UUID, *websocket.Conn, *server.Client, context.CancelFunc) {
 
-	hub := server.NewHub(MockGameService{})
+	hub := server.NewHub(MockGameService{}, 1, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go hub.Run(ctx)
 	gh, err := hub.NewGameHub(gameName, questionCount)
@@ -125,7 +125,7 @@ func Setup(t *testing.T) (uuid.UUID, *websocket.Conn, *server.Client, context.Ca
 }
 
 func TestServeWebsocket(t *testing.T) {
-	hub := server.NewHub(MockGameService{})
+	hub := server.NewHub(MockGameService{}, 1, 1)
 	ctx, _ := context.WithCancel(context.Background())
 	go hub.Run(ctx)
 

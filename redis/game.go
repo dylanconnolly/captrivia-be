@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/google/uuid"
@@ -11,13 +12,19 @@ import (
 )
 
 type GameService struct {
-	rdb *redis.Client
+	rdb               *redis.Client
+	DBAddr            string
+	GameTTL           time.Duration
+	CountdownDuration time.Duration
+	QuestionDuration  time.Duration
 }
 
-func NewGameService() *GameService {
-	client := NewClient()
+func NewGameService(dbAddr string, gameTTL int) *GameService {
+	client := NewClient(dbAddr)
 	return &GameService{
-		rdb: client,
+		rdb:     client,
+		DBAddr:  dbAddr,
+		GameTTL: (time.Duration(gameTTL) * time.Second),
 	}
 }
 
@@ -88,5 +95,5 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 
 func (s *GameService) ExpireGame(gameID uuid.UUID) error {
 	key := fmt.Sprintf(gameKey, gameID)
-	return s.rdb.Expire(ctx, key, EndedGameTTL).Err()
+	return s.rdb.Expire(ctx, key, s.GameTTL).Err()
 }
