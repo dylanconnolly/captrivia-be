@@ -29,7 +29,7 @@ type Game struct {
 	currentQuestionIndex int
 	questions            []Question
 	scores               map[string]int
-	gameEnded            chan<- bool
+	gameEnded            chan bool
 }
 
 type PlayerScore struct {
@@ -99,6 +99,7 @@ func newGame(name string, qCount int) *Game {
 		QuestionCount: qCount,
 		State:         GameStateWaiting,
 		scores:        make(map[string]int),
+		gameEnded:     make(chan bool, 1),
 	}
 }
 
@@ -148,18 +149,20 @@ func (g *Game) PlayerScores() []PlayerScore {
 	return playerScores
 }
 
+func (g *Game) CurrentIndex() int {
+	return g.currentQuestionIndex
+}
+
 func (g *Game) CurrentQuestion() Question {
 	return g.questions[g.currentQuestionIndex]
 }
 
-func (g *Game) GoToNextQuestion() error {
+func (g *Game) GoToNextQuestion() {
 	if g.IsLastQuestion() {
-		// log.Println("ending game")
-		// return fmt.Errorf("game has ended")
 		g.gameEnded <- true
+		return
 	}
 	g.currentQuestionIndex++
-	return nil
 }
 
 func (g *Game) IsLastQuestion() bool {
@@ -178,6 +181,6 @@ func (g *Game) IncrementPlayerScore(player string) {
 	g.scores[player] += 1
 }
 
-func (g *Game) AttachGameEnded(channel chan<- bool) {
-	g.gameEnded = channel
+func (g *Game) GameEndedChan() chan bool {
+	return g.gameEnded
 }

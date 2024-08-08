@@ -6,10 +6,48 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
+const (
+	PlayerCommandTypeCreate PlayerCommandType = "create"
+	PlayerCommandTypeJoin   PlayerCommandType = "join"
+	PlayerCommandTypeReady  PlayerCommandType = "ready"
+	PlayerCommandTypeStart  PlayerCommandType = "start"
+	PlayerCommandTypeAnswer PlayerCommandType = "answer"
+)
+
 var upgrader = websocket.Upgrader{}
+
+type PlayerCommandType string
+
+type PlayerCommand struct {
+	Nonce   string            `json:"nonce"`
+	Payload json.RawMessage   `json:"payload"`
+	Type    PlayerCommandType `json:"type"`
+}
+
+type GameLobbyCommand struct {
+	player  string
+	payload PlayerLobbyCommand
+	Type    PlayerCommandType
+}
+
+type PlayerCommandCreate struct {
+	Name          string `json:"name"`
+	QuestionCount int    `json:"question_count"`
+}
+
+type PlayerLobbyCommand struct {
+	GameID uuid.UUID `json:"game_id"`
+}
+
+type PlayerCommandAnswer struct {
+	GameID     uuid.UUID `json:"game_id"`
+	Index      int       `json:"index"`
+	QuestionID string    `json:"question_id"`
+}
 
 // Client manages the websocket for a user and communicates with the ClientManager
 type Client struct {

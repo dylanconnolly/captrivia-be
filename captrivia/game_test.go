@@ -101,21 +101,51 @@ func TestRemovePlayer(t *testing.T) {
 }
 
 func TestIsLastQuestion(t *testing.T) {
-	questions, err := captrivia.LoadQuestions("../questions.json")
+	g, err := captrivia.NewGame("test last question", 3)
 	if err != nil {
-		t.Error("error loading questions: ", err)
+		t.Error(err)
 	}
-	g := CreateTestGame()
-
-	g.AddQuestions(questions)
 
 	assert.False(t, g.IsLastQuestion())
 
 	g.GoToNextQuestion()
-
 	assert.False(t, g.IsLastQuestion())
 
 	g.GoToNextQuestion()
+	assert.True(t, g.IsLastQuestion())
+}
+
+func TestGoToNextQuestion(t *testing.T) {
+	g, err := captrivia.NewGame("test game", 5)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, 0, g.CurrentIndex())
+
+	g.GoToNextQuestion()
+
+	assert.Equal(t, 1, g.CurrentIndex())
+
+	g.GoToNextQuestion()
+	g.GoToNextQuestion()
+
+	assert.Equal(t, 3, g.CurrentIndex())
+}
+func TestGameEnd(t *testing.T) {
+	g, err := captrivia.NewGame("test end of game", 1)
+	if err != nil {
+		t.Error(err)
+	}
 
 	assert.True(t, g.IsLastQuestion())
+
+	go func() {
+		g.GoToNextQuestion()
+	}()
+
+	ended := <-g.GameEndedChan()
+
+	assert.True(t, ended)
+	assert.Equal(t, 0, g.CurrentIndex())
 }

@@ -28,7 +28,7 @@ type GameHub struct {
 	countdown        int
 	game             *captrivia.Game
 	gameService      captrivia.GameService
-	gameEnded        chan bool
+	gameEnded        <-chan bool
 	hubBroadcast     chan<- GameEvent // send only channel to push GameEvents to Hub
 	register         chan *Client
 	unregister       chan *Client
@@ -52,7 +52,7 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 		countdown:        questionCountdown,
 		game:             g,
 		gameService:      gameService,
-		gameEnded:        make(chan bool, 1),
+		gameEnded:        g.GameEndedChan(),
 		hubBroadcast:     hubBroadcast,
 		register:         make(chan *Client),
 		questionDuration: questionDuration,
@@ -149,8 +149,6 @@ func (g *GameHub) playerLeave(client *Client) {
 // Runs the main trivia game loop. Listens for answers from client and handles
 // the tickers used for countdowns and question durations
 func (g *GameHub) runGame(done chan<- bool) {
-	g.game.AttachGameEnded(g.gameEnded)
-
 	countdownEvent := newGameEventCountdown(g.game.ID, g.countdown)
 	g.broadcast <- countdownEvent.toBytes()
 	countdownTicker := time.NewTicker(countdownTickerDuration)
