@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -22,6 +23,12 @@ var upgrader = websocket.Upgrader{}
 
 type PlayerCommandType string
 
+type WebSocketConn interface {
+	ReadMessage() (int, []byte, error)
+	WriteMessage(int, []byte) error
+	Close() error
+}
+
 type PlayerCommand struct {
 	Nonce   string            `json:"nonce"`
 	Payload json.RawMessage   `json:"payload"`
@@ -29,8 +36,8 @@ type PlayerCommand struct {
 }
 
 type GameLobbyCommand struct {
-	player  string
-	payload PlayerLobbyCommand
+	Player  string
+	Payload PlayerLobbyCommand
 	Type    PlayerCommandType
 }
 
@@ -52,9 +59,10 @@ type PlayerCommandAnswer struct {
 // Client manages the websocket for a user and communicates with the ClientManager
 type Client struct {
 	name    string
-	hub     *Hub
 	gameHub *GameHub
-	conn    *websocket.Conn
+	hub     *Hub
+	mu      sync.Mutex
+	Conn    WebSocketConn
 	send    chan []byte
 }
 
@@ -74,7 +82,7 @@ func (c *Client) readMessage() {
 	defer c.Close()
 
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
 				log.Printf("error reading message: %s\n", err)
@@ -87,11 +95,14 @@ func (c *Client) readMessage() {
 }
 
 func (c *Client) handleRead(message []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var cmd PlayerCommand
 	err := json.Unmarshal(message, &cmd)
 	if err != nil {
 		log.Printf("error unmarshalling command: %s. Error: %s", message, err)
 		c.send <- []byte("could not parse command payload")
+		// c.mu.Unlock()
 		return
 	}
 
@@ -103,8 +114,9 @@ func (c *Client) handleRead(message []byte) {
 		if err != nil {
 			log.Printf("error unmarshalling create game command payload: %s\n Client: %s Command: %s", err, c.name, cmd)
 			c.send <- []byte("could not parse command payload")
+			// c.mu.Unlock()
+			return
 		}
-
 		c.handleCreateGame(payload)
 
 	case PlayerCommandTypeJoin:
@@ -113,9 +125,9 @@ func (c *Client) handleRead(message []byte) {
 		if err != nil {
 			log.Printf("error unmarshalling join game command payload: %s\n Client: %s Command: %s", err, c.name, cmd)
 			c.send <- []byte("could not parse command payload")
+			// c.mu.Unlock()
 			return
 		}
-
 		c.handleJoinGame(payload)
 
 	case PlayerCommandTypeReady:
@@ -124,6 +136,7 @@ func (c *Client) handleRead(message []byte) {
 		if err != nil {
 			log.Print(err)
 			c.send <- []byte("error unmarshalling payload for player ready command")
+			// c.mu.Unlock()
 		}
 
 		c.handlePlayerReady(payload)
@@ -134,6 +147,7 @@ func (c *Client) handleRead(message []byte) {
 		if err != nil {
 			log.Printf("error unmarshalling start game command payload: %s\n Client: %+v Command: %s", err, c, cmd)
 			c.send <- []byte("could not parse command payload")
+			// c.mu.Unlock()
 			return
 		}
 
@@ -145,10 +159,13 @@ func (c *Client) handleRead(message []byte) {
 		if err != nil {
 			log.Printf("error unmarshalling player answer: %s\n Client: %+v Command: %s", err, c, cmd)
 			c.send <- []byte("could not parse command payload")
+			// c.mu.Unlock()
 			return
 		}
 
 		c.handlePlayerAnswer(payload)
+	default:
+		log.Printf("got unknown command %s", cmd)
 	}
 }
 
@@ -162,9 +179,7 @@ func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 
 	go gameHub.Run(context.Background())
 
-	gameHub.register <- c
-
-	log.Printf("CLIENT AFTER CREATE: %+v", c)
+	gameHub.Register <- c
 }
 
 func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
@@ -174,13 +189,13 @@ func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
 		return
 	}
 
-	gh.register <- c
+	gh.Register <- c
 }
 
 func (c *Client) handlePlayerReady(payload PlayerLobbyCommand) {
 	gameCommand := GameLobbyCommand{
-		player:  c.name,
-		payload: payload,
+		Player:  c.name,
+		Payload: payload,
 		Type:    PlayerCommandTypeReady,
 	}
 
@@ -194,13 +209,13 @@ func (c *Client) handlePlayerReady(payload PlayerLobbyCommand) {
 	// 	gh.register <- c
 	// }
 
-	gh.commands <- gameCommand
+	gh.Commands <- gameCommand
 }
 
 func (c *Client) handleStartGame(payload PlayerLobbyCommand) {
 	gameCommand := GameLobbyCommand{
-		player:  c.name,
-		payload: payload,
+		Player:  c.name,
+		Payload: payload,
 		Type:    PlayerCommandTypeStart,
 	}
 
@@ -210,7 +225,7 @@ func (c *Client) handleStartGame(payload PlayerLobbyCommand) {
 		return
 	}
 
-	gh.commands <- gameCommand
+	gh.Commands <- gameCommand
 }
 
 func (c *Client) handlePlayerAnswer(payload PlayerCommandAnswer) {
@@ -226,23 +241,23 @@ func (c *Client) handlePlayerAnswer(payload PlayerCommandAnswer) {
 		return
 	}
 
-	gh.answers <- ga
+	gh.Answers <- ga
 }
 
 func (c *Client) writeMessage() {
-	defer c.conn.Close()
+	defer c.Conn.Close()
 	for message := range c.send {
 		// if !ok {
 		// 	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 		// 	return
 		// }
-		err := c.conn.WriteMessage(websocket.TextMessage, message)
+		err := c.Conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
 			log.Printf("error writing message to websocket: ERROR=%s. MESSAGE=%s, CLIENT=%+v\n", err, message, c)
 		}
 	}
 
-	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+	c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 }
 
 // upgrades connection to websocket on client and registers client with client Hub
@@ -258,7 +273,7 @@ func (c *Client) ServeWebsocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("client connected: %s", c.name)
-	c.conn = conn
+	c.Conn = conn
 	c.hub.register <- c
 	pe := newPlayerEventConnect(c.name)
 	c.hub.allBroadcast <- pe.toBytes()
@@ -272,5 +287,5 @@ func (c *Client) Close() {
 	c.hub.disconnect <- c
 	pe := newPlayerEventDisconnect(c.name)
 	c.hub.allBroadcast <- pe.toBytes()
-	c.conn.Close()
+	c.Conn.Close()
 }

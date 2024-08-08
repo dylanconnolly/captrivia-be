@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ type Hub struct {
 	clientNames  map[string]bool
 	disconnect   chan *Client
 	hubClients   map[*Client]bool // tracks only clients that are in the hub (not in a game)
+	mu           sync.Mutex
 	register     chan *Client
 	unregister   chan *Client
 
@@ -80,10 +82,14 @@ func (h *Hub) Run(ctx context.Context) {
 			if client.gameHub != nil {
 				client.gameHub.playerLeave(client)
 			}
+			h.mu.Lock()
 			delete(h.clients, client)
 			delete(h.hubClients, client)
 			delete(h.clientNames, client.name)
+			h.mu.Unlock()
+			client.mu.Lock()
 			close(client.send)
+			client.mu.Unlock()
 		case <-ctx.Done():
 			log.Println("stopping Hub goroutine.")
 			return
@@ -104,13 +110,6 @@ func (h *Hub) NewGameHub(name string, questionCount int) (*GameHub, error) {
 	return gh, nil
 }
 
-// func (h *Hub) RunGameHub(gameID uuid.UUID) {
-// 	if gh := h.GetGameHub(gameID); gh != nil {
-// 		ctx := context.Background()
-// 		go gh.Run(ctx)
-// 	}
-// }
-
 func (h *Hub) GetGameHub(gameID uuid.UUID) (*GameHub, error) {
 	if gh, ok := h.gameHubs[gameID]; ok {
 		return gh, nil
@@ -120,8 +119,8 @@ func (h *Hub) GetGameHub(gameID uuid.UUID) (*GameHub, error) {
 
 func (h *Hub) CloseGameHub(gameID uuid.UUID) {
 	if gh, ok := h.gameHubs[gameID]; ok {
-		for client := range gh.clients {
-			gh.unregister <- client
+		for client := range gh.Clients {
+			gh.Unregister <- client
 			h.register <- client
 		}
 	}

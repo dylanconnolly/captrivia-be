@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
@@ -11,18 +12,19 @@ import (
 
 type GameHub struct {
 	ID           uuid.UUID
-	broadcast    chan []byte
-	clients      map[*Client]bool
-	commands     chan GameLobbyCommand
+	Answers      chan GameAnswer
+	Broadcast    chan []byte
+	Clients      map[*Client]bool
+	Commands     chan GameLobbyCommand
 	countdownSec int
 	game         *captrivia.Game
 	gameService  captrivia.GameService
 	gameEnded    <-chan bool
 	hubBroadcast chan<- GameEvent // send only channel to push GameEvents to Hub
-	register     chan *Client
-	unregister   chan *Client
+	mu           sync.Mutex
+	Register     chan *Client
+	Unregister   chan *Client
 	questionSec  int
-	answers      chan GameAnswer
 }
 
 type GameAnswer struct {
@@ -34,18 +36,18 @@ type GameAnswer struct {
 func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadcast chan<- GameEvent, countdownSec int, questionSec int) *GameHub {
 	return &GameHub{
 		ID:           g.ID,
-		answers:      make(chan GameAnswer),
-		broadcast:    make(chan []byte, 256),
-		clients:      make(map[*Client]bool),
-		commands:     make(chan GameLobbyCommand),
+		Answers:      make(chan GameAnswer),
+		Broadcast:    make(chan []byte, 256),
+		Clients:      make(map[*Client]bool),
+		Commands:     make(chan GameLobbyCommand),
 		countdownSec: countdownSec,
 		game:         g,
 		gameService:  gameService,
 		gameEnded:    g.GameEndedChan(),
 		hubBroadcast: hubBroadcast,
-		register:     make(chan *Client, 5),
+		Register:     make(chan *Client, 5),
 		questionSec:  questionSec,
-		unregister:   make(chan *Client, 5),
+		Unregister:   make(chan *Client, 5),
 	}
 }
 
@@ -55,37 +57,41 @@ func (g *GameHub) Run(ctx context.Context) {
 	done := make(chan bool, 1)
 	for {
 		select {
-		case client := <-g.register:
-			g.clients[client] = true
+		case client := <-g.Register:
+			g.mu.Lock()
+			g.Clients[client] = true
+			g.mu.Unlock()
 			client.gameHub = g
 			go g.playerJoin(client)
-		case client := <-g.unregister:
+		case client := <-g.Unregister:
 			go g.playerLeave(client)
-		case message := <-g.broadcast:
+		case message := <-g.Broadcast:
 			// broadcasts message to all clients that are part of the GameHub
-			for client := range g.clients {
+			g.mu.Lock()
+			for client := range g.Clients {
 				select {
 				case client.send <- message:
 				default:
 					close(client.send)
-					delete(g.clients, client)
+					delete(g.Clients, client)
 				}
 			}
+			g.mu.Unlock()
 
-		case command := <-g.commands:
+		case command := <-g.Commands:
 			// commands channel listens for lobby commands (Ready, Start, Leave) issued by player clients
 			var event GameEvent
 			switch command.Type {
 			case PlayerCommandTypeReady:
-				event = newGameEventPlayerReady(command.payload.GameID, command.player)
-				g.game.PlayerReady(command.player)
+				event = newGameEventPlayerReady(command.Payload.GameID, command.Player)
+				g.game.PlayerReady(command.Player)
 				go g.gameService.SaveGame(g.game)
 			case PlayerCommandTypeStart:
-				event = newGameEventStart(command.payload.GameID)
+				event = newGameEventStart(command.Payload.GameID)
 
-				go g.runGame(done)
+				go g.RunGame(done)
 			}
-			g.broadcast <- event.toBytes()
+			g.Broadcast <- event.toBytes()
 
 		case <-done:
 			err := g.gameService.ExpireGame(g.ID)
@@ -93,13 +99,14 @@ func (g *GameHub) Run(ctx context.Context) {
 			if err != nil {
 				log.Printf("error setting game to expire %s . GameID=%s", err, g.game.ID)
 			}
-			log.Printf("GameHub game (%s) completed.", g.game.ID)
 
 			// re-register clients with Hub to recieve game creation/state updates and remove from GameHub clients
-			for client := range g.clients {
+			g.mu.Lock()
+			for client := range g.Clients {
 				client.hub.register <- client
-				delete(g.clients, client)
+				delete(g.Clients, client)
 			}
+			g.mu.Unlock()
 			return
 		}
 	}
@@ -108,6 +115,7 @@ func (g *GameHub) Run(ctx context.Context) {
 // helper function to add player to Game and generate PlayerEnter + PlayerJoin
 // GameEvents to be broadcast to the game lobby
 func (g *GameHub) playerJoin(client *Client) {
+	g.mu.Lock()
 	g.game.AddPlayer(client.name)
 	g.gameService.SaveGame(g.game)
 
@@ -118,16 +126,18 @@ func (g *GameHub) playerJoin(client *Client) {
 	client.hub.unregister <- client
 
 	joinEvent := newGameEventPlayerJoin(g.game.ID, client.name)
-	g.broadcast <- joinEvent.toBytes()
+	g.Broadcast <- joinEvent.toBytes()
 
 	playerCountEvent := newGameEventPlayerCount(g.game.ID, g.game.PlayerCount)
 	g.hubBroadcast <- playerCountEvent
+	g.mu.Unlock()
 }
 
 // Helper function to remove a player from GameHub + Game, and re-register
 // the client to the Hub
 func (g *GameHub) playerLeave(client *Client) {
-	delete(g.clients, client)
+	g.mu.Lock()
+	delete(g.Clients, client)
 	g.game.RemovePlayer(client.name)
 	g.gameService.SaveGame(g.game)
 
@@ -135,14 +145,15 @@ func (g *GameHub) playerLeave(client *Client) {
 	g.hubBroadcast <- playerCountEvent
 
 	leaveEvent := newGameEventPlayerLeave(g.game.ID, client.name)
-	g.broadcast <- leaveEvent.toBytes()
+	g.Broadcast <- leaveEvent.toBytes()
+	g.mu.Unlock()
 }
 
 // Runs the main trivia game loop. Listens for answers from client and handles
 // the tickers used for countdowns and question durations
-func (g *GameHub) runGame(done chan<- bool) {
+func (g *GameHub) RunGame(done chan<- bool) {
 	countdownEvent := newGameEventCountdown(g.game.ID, g.countdownSec)
-	g.broadcast <- countdownEvent.toBytes()
+	g.Broadcast <- countdownEvent.toBytes()
 	countdownDuration := time.Duration(g.countdownSec) * time.Second
 	questionDuration := time.Duration(g.questionSec) * time.Second
 
@@ -164,10 +175,10 @@ func (g *GameHub) runGame(done chan<- bool) {
 		case <-questionTicker.C: // time expired before a correct answer was provided
 			questionTicker.Stop()
 			g.handleQuestionTimeExpired()
-			g.broadcast <- countdownEvent.toBytes()
+			g.Broadcast <- countdownEvent.toBytes()
 			countdownTicker = time.NewTicker(countdownDuration)
 
-		case ans := <-g.answers: // player has answered the question
+		case ans := <-g.Answers: // player has answered the question
 			correct := g.game.ValidateAnswer(ans.Index)
 
 			if correct {
@@ -175,22 +186,22 @@ func (g *GameHub) runGame(done chan<- bool) {
 
 				g.game.IncrementPlayerScore(ans.Player)
 				event := newGameEventPlayerCorrect(g.game.ID, ans.Player, ans.QuestionID)
-				g.broadcast <- event.toBytes()
+				g.Broadcast <- event.toBytes()
 
 				g.game.GoToNextQuestion()
 
-				g.broadcast <- countdownEvent.toBytes()
+				g.Broadcast <- countdownEvent.toBytes()
 				countdownTicker = time.NewTicker(countdownDuration)
 
 				g.ChangeGameState(captrivia.GameStateCountdown)
 			} else {
 				event := newGameEventPlayerIncorrect(g.game.ID, ans.Player, ans.QuestionID)
-				g.broadcast <- event.toBytes()
+				g.Broadcast <- event.toBytes()
 			}
 
 		case <-g.gameEnded:
 			gameEndEvent := newGameEventEnd(g.game.ID, g.game.PlayerScores())
-			g.broadcast <- gameEndEvent.toBytes()
+			g.Broadcast <- gameEndEvent.toBytes()
 			g.ChangeGameState(captrivia.GameStateEnded)
 			done <- true
 			return
@@ -209,7 +220,7 @@ func (g *GameHub) ChangeGameState(state captrivia.GameState) {
 func (g *GameHub) handleDisplayQuestion() {
 	q := g.game.CurrentQuestion()
 	questionEvent := newGameEventQuestion(g.game.ID, q, g.questionSec)
-	g.broadcast <- questionEvent.toBytes()
+	g.Broadcast <- questionEvent.toBytes()
 
 	g.ChangeGameState(captrivia.GameStateQuestion)
 }

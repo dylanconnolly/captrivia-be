@@ -3,8 +3,11 @@ package captrivia
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/google/uuid"
 )
@@ -28,9 +31,9 @@ type Game struct {
 
 	currentQuestionIndex int
 	questions            []Question
-	scores               map[string]int
+	Scores               map[string]int
 	gameEnded            chan bool
-	// mu                   sync.Mutex
+	mu                   sync.Mutex
 }
 
 type PlayerScore struct {
@@ -99,7 +102,7 @@ func newGame(name string, qCount int) *Game {
 		PlayersReady:  make(map[string]bool),
 		QuestionCount: qCount,
 		State:         GameStateWaiting,
-		scores:        make(map[string]int),
+		Scores:        make(map[string]int),
 		gameEnded:     make(chan bool, 1),
 	}
 }
@@ -107,11 +110,12 @@ func newGame(name string, qCount int) *Game {
 func NewGame(name string, qCount int) (*Game, error) {
 	game := newGame(name, qCount)
 
-	file, err := filepath.Abs("questions.json")
-	if err != nil {
-		return nil, fmt.Errorf("error forming filepath for questions: %s", err)
-	}
-	questions, err := LoadQuestions(file)
+	// file, err := filepath.Abs("../questions.json")
+	wd, _ := os.Getwd()
+	wd = filepath.Dir(wd)
+	filePath := fmt.Sprintf("%s/captrivia-be/questions.json", wd)
+
+	questions, err := LoadQuestions(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error loading questions: %s", err)
 	}
@@ -123,19 +127,25 @@ func NewGame(name string, qCount int) (*Game, error) {
 }
 
 func (g *Game) AddPlayer(player string) {
+	g.mu.Lock()
 	g.PlayersReady[player] = false
-	g.scores[player] = 0
+	g.Scores[player] = 0
 	g.PlayerCount++
+	g.mu.Unlock()
 }
 
 func (g *Game) RemovePlayer(player string) {
+	g.mu.Lock()
 	delete(g.PlayersReady, player)
-	delete(g.scores, player)
+	delete(g.Scores, player)
 	g.PlayerCount--
+	g.mu.Unlock()
 }
 
 func (g *Game) PlayerReady(player string) {
+	g.mu.Lock()
 	g.PlayersReady[player] = true
+	g.mu.Unlock()
 }
 
 func (g *Game) AddQuestions(questions []Question) {
@@ -144,14 +154,19 @@ func (g *Game) AddQuestions(questions []Question) {
 
 func (g *Game) PlayerScores() []PlayerScore {
 	var playerScores []PlayerScore
-	for player, score := range g.scores {
+	g.mu.Lock()
+	for player, score := range g.Scores {
 		s := PlayerScore{
 			Name:  player,
 			Score: score,
 		}
 		playerScores = append(playerScores, s)
 	}
+	g.mu.Unlock()
 
+	sort.Slice(playerScores, func(i, j int) bool {
+		return playerScores[i].Score > playerScores[j].Score
+	})
 	return playerScores
 }
 
@@ -184,7 +199,7 @@ func (g *Game) ValidateAnswer(index int) bool {
 }
 
 func (g *Game) IncrementPlayerScore(player string) {
-	g.scores[player] += 1
+	g.Scores[player] += 1
 }
 
 func (g *Game) GameEndedChan() chan bool {
