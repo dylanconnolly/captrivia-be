@@ -91,17 +91,37 @@ func toBytes(command server.PlayerCommand) []byte {
 	return bytes
 }
 
-var hub *server.Hub = server.NewHub(MockGameService{})
+func Setup(t *testing.T) (uuid.UUID, *websocket.Conn, *server.Client, context.CancelFunc) {
 
-func Setup() (uuid.UUID, context.CancelFunc) {
-	id := hub.NewGameHub(gameName, questionCount)
-
+	hub := server.NewHub(MockGameService{})
 	ctx, cancel := context.WithCancel(context.Background())
-
 	go hub.Run(ctx)
-	hub.RunGameHub(id)
+	gh, err := hub.NewGameHub(gameName, questionCount)
+	if err != nil {
+		log.Println(err)
+	}
 
-	return id, cancel
+	client := server.NewClient(playerName, hub)
+
+	s := httptest.NewServer(http.HandlerFunc(client.ServeWebsocket))
+	defer s.Close()
+
+	u := "ws" + strings.TrimPrefix(s.URL, "http")
+
+	header := http.Header{}
+	header.Add("Origin", "http://localhost:3000")
+
+	ws, _, err := websocket.DefaultDialer.Dial(u, header)
+	if err != nil {
+		t.Fatalf("error dialing websocket: %s", err)
+	}
+
+	// ignore player_connected message
+	ws.ReadMessage()
+
+	go gh.Run(ctx)
+
+	return gh.ID, ws, client, cancel
 }
 
 func TestServeWebsocket(t *testing.T) {
@@ -145,9 +165,8 @@ func TestServeWebsocket(t *testing.T) {
 }
 
 func TestPlayerCommandCreate(t *testing.T) {
-	ws, s, client := openWebsocketConn(t)
-	defer s.Close()
-	defer ws.Close()
+	gameID, ws, client, cancel := Setup(t)
+	// ws, _, _ := Setup(t)
 
 	command := server.PlayerCommand{
 		Nonce: "123456",
@@ -163,7 +182,7 @@ func TestPlayerCommandCreate(t *testing.T) {
 	ws.WriteMessage(websocket.TextMessage, b)
 
 	expected := server.GameEvent{
-		ID: uuid.New(),
+		ID: gameID,
 		Payload: server.GameEventCreate{
 			Name:          gameName,
 			QuestionCount: questionCount,
@@ -178,14 +197,11 @@ func TestPlayerCommandCreate(t *testing.T) {
 	assert.Equal(t, expected.Type, expected.Type)
 
 	client.Close()
+	cancel()
 }
 
 func TestPlayerCommandJoin(t *testing.T) {
-	ws, s, client := openWebsocketConn(t)
-	defer s.Close()
-	defer ws.Close()
-
-	gameID, cancel := Setup()
+	gameID, ws, client, cancel := Setup(t)
 
 	command := server.PlayerCommand{
 		Nonce: "123456",

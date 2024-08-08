@@ -14,11 +14,12 @@ const (
 )
 
 func CreateTestGame() captrivia.Game {
-	return *captrivia.NewGame(gameName, questionCount)
+	g, _ := captrivia.NewGame(gameName, questionCount)
+	return *g
 }
 
 func TestNewGame(t *testing.T) {
-	g := captrivia.NewGame(gameName, questionCount)
+	g, _ := captrivia.NewGame(gameName, questionCount)
 
 	assert.Equal(t, gameName, g.Name)
 	assert.Equal(t, questionCount, g.QuestionCount)

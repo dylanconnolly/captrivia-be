@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -115,14 +116,26 @@ func (c *Client) handleRead(message []byte) {
 
 func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 	// creates GameHub which manages the state and lifecycle of the game
-	gameID := c.hub.NewGameHub(payload.Name, payload.QuestionCount)
-	c.hub.RunGameHub(gameID)
-	c.hub.RegisterClientToGameHub(gameID, c)
+	gameHub, err := c.hub.NewGameHub(payload.Name, payload.QuestionCount)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	go gameHub.Run(context.Background())
+
+	gameHub.register <- c
 }
 
 func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
 	log.Println("handling player join")
-	c.hub.RegisterClientToGameHub(payload.GameID, c)
+	gh, err := c.hub.GetGameHub(payload.GameID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	gh.register <- c
 }
 
 func (c *Client) handlePlayerReady(payload PlayerLobbyCommand) {
@@ -132,7 +145,11 @@ func (c *Client) handlePlayerReady(payload PlayerLobbyCommand) {
 		Type:    PlayerCommandTypeReady,
 	}
 
-	gh := c.hub.GetGameHub(payload.GameID)
+	gh, err := c.hub.GetGameHub(payload.GameID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	gh.commands <- gameCommand
 }
@@ -144,7 +161,11 @@ func (c *Client) handleStartGame(payload PlayerLobbyCommand) {
 		Type:    PlayerCommandTypeStart,
 	}
 
-	gh := c.hub.GetGameHub(payload.GameID)
+	gh, err := c.hub.GetGameHub(payload.GameID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	gh.commands <- gameCommand
 }
@@ -156,7 +177,11 @@ func (c *Client) handlePlayerAnswer(payload PlayerCommandAnswer) {
 		Index:      payload.Index,
 	}
 
-	gh := c.hub.GetGameHub(payload.GameID)
+	gh, err := c.hub.GetGameHub(payload.GameID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	gh.answers <- ga
 }

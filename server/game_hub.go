@@ -68,7 +68,7 @@ func (g *GameHub) Run(ctx context.Context) {
 		select {
 		case client := <-g.register:
 			g.clients[client] = true
-
+			client.gameHub = g
 			g.playerJoin(client)
 
 			g.gameService.SaveGame(g.game)

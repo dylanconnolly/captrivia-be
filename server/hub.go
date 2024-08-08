@@ -77,7 +77,9 @@ func (h *Hub) Run(ctx context.Context) {
 			delete(h.clients, client)
 			delete(h.hubClients, client)
 			delete(h.clientNames, client.name)
-			close(client.send)
+			if _, ok := <-client.send; ok {
+				close(client.send)
+			}
 		case <-ctx.Done():
 			log.Println("stopping Hub goroutine")
 			return
@@ -85,38 +87,32 @@ func (h *Hub) Run(ctx context.Context) {
 	}
 }
 
-func (h *Hub) NewGameHub(name string, questionCount int) uuid.UUID {
-	game := captrivia.NewGame(name, questionCount)
+func (h *Hub) NewGameHub(name string, questionCount int) (*GameHub, error) {
+	game, err := captrivia.NewGame(name, questionCount)
+	if err != nil {
+		return nil, fmt.Errorf("error creating game for game hub: %s", err)
+	}
 	gh := NewGameHub(game, h.GameService, h.gameEvents)
-	h.gameHubs[game.ID] = gh
+	h.gameHubs[gh.ID] = gh
 
 	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)
 	h.gameEvents <- ge
-
-	return gh.ID
+	log.Printf("got create command")
+	return gh, nil
 }
 
-func (h *Hub) RunGameHub(gameID uuid.UUID) {
-	if gh := h.GetGameHub(gameID); gh != nil {
-		ctx := context.Background()
-		go gh.Run(ctx)
-	}
-}
+// func (h *Hub) RunGameHub(gameID uuid.UUID) {
+// 	if gh := h.GetGameHub(gameID); gh != nil {
+// 		ctx := context.Background()
+// 		go gh.Run(ctx)
+// 	}
+// }
 
-func (h *Hub) GetGameHub(gameID uuid.UUID) *GameHub {
+func (h *Hub) GetGameHub(gameID uuid.UUID) (*GameHub, error) {
 	if gh, ok := h.gameHubs[gameID]; ok {
-		return gh
+		return gh, nil
 	}
-	return nil
-}
-
-func (h *Hub) RegisterClientToGameHub(gameID uuid.UUID, client *Client) {
-	if gh, ok := h.gameHubs[gameID]; ok {
-		gh.register <- client
-		h.unregister <- client
-	} else {
-		client.send <- []byte(fmt.Sprintf("could not find gamehub for gameID=%s", gameID))
-	}
+	return nil, fmt.Errorf("no gamehub found for gameID=%s", gameID)
 }
 
 func (h *Hub) CloseGameHub(gameID uuid.UUID) {

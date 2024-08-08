@@ -2,7 +2,8 @@ package captrivia
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -101,19 +102,21 @@ func newGame(name string, qCount int) *Game {
 	}
 }
 
-func NewGame(name string, qCount int) *Game {
+func NewGame(name string, qCount int) (*Game, error) {
 	game := newGame(name, qCount)
-
-	questions, err := LoadQuestions("questions.json")
+	file, err := filepath.Abs("../questions.json")
 	if err != nil {
-		log.Println("error loading questions to game")
-		return nil
+		return nil, fmt.Errorf("error forming filepath for questions: %s", err)
+	}
+	questions, err := LoadQuestions(file)
+	if err != nil {
+		return nil, fmt.Errorf("error loading questions: %s", err)
 	}
 
 	shuffled := ShuffleQuestions(questions, qCount)
 	game.questions = shuffled
 
-	return game
+	return game, nil
 }
 
 func (g *Game) AddPlayer(player string) {
