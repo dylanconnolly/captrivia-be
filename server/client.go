@@ -163,6 +163,8 @@ func (c *Client) handleCreateGame(payload PlayerCommandCreate) {
 	go gameHub.Run(context.Background())
 
 	gameHub.register <- c
+
+	log.Printf("CLIENT AFTER CREATE: %+v", c)
 }
 
 func (c *Client) handleJoinGame(payload PlayerLobbyCommand) {
@@ -188,6 +190,10 @@ func (c *Client) handlePlayerReady(payload PlayerLobbyCommand) {
 		log.Println(err)
 		return
 	}
+
+	// if c.gameHub == nil {
+	// 	gh.register <- c
+	// }
 
 	gh.commands <- gameCommand
 }

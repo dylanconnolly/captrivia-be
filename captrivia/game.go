@@ -105,7 +105,8 @@ func newGame(name string, qCount int) *Game {
 
 func NewGame(name string, qCount int) (*Game, error) {
 	game := newGame(name, qCount)
-	file, err := filepath.Abs("../questions.json")
+
+	file, err := filepath.Abs("questions.json")
 	if err != nil {
 		return nil, fmt.Errorf("error forming filepath for questions: %s", err)
 	}
@@ -130,6 +131,10 @@ func (g *Game) RemovePlayer(player string) {
 	delete(g.PlayersReady, player)
 	delete(g.scores, player)
 	g.PlayerCount--
+}
+
+func (g *Game) PlayerReady(player string) {
+	g.PlayersReady[player] = true
 }
 
 func (g *Game) AddQuestions(questions []Question) {
@@ -183,4 +188,9 @@ func (g *Game) IncrementPlayerScore(player string) {
 
 func (g *Game) GameEndedChan() chan bool {
 	return g.gameEnded
+}
+
+func (g *Game) EndGame() {
+	clear(g.PlayersReady)
+	g.PlayerCount = 0
 }

@@ -191,6 +191,7 @@ func TestPlayerCommandCreate(t *testing.T) {
 	}
 
 	_, r, _ := ws.ReadMessage()
+
 	resp := buildEvent(r, server.GameEventCreate{}.Raw())
 
 	assert.Equal(t, expected.Payload, resp.Payload)
@@ -249,6 +250,41 @@ func TestPlayerCommandJoin(t *testing.T) {
 	log.Println(string(r))
 
 	resp = buildEvent(r, server.GameEventCreate{}.Raw())
+
+	assert.Equal(t, expected.Payload, resp.Payload)
+	assert.Equal(t, expected.Type, expected.Type)
+
+	client.Close()
+	cancel()
+}
+
+func TestPlayerCommandReady(t *testing.T) {
+	gameID, ws, client, cancel := Setup(t)
+
+	command := server.PlayerCommand{
+		Nonce: "123456",
+		Payload: Raw(server.PlayerLobbyCommand{
+			GameID: gameID,
+		}),
+		Type: server.PlayerCommandTypeReady,
+	}
+
+	b := toBytes(command)
+
+	ws.WriteMessage(websocket.TextMessage, b)
+
+	expected := server.GameEvent{
+		ID: gameID,
+		Payload: server.GameEventPlayerLobbyAction{
+			Player: playerName,
+		}.Raw(),
+		Type: server.GameEventTypePlayerReady,
+	}
+	_, r, _ := ws.ReadMessage()
+
+	log.Println(string(r))
+
+	resp := buildEvent(r, server.GameEventCreate{}.Raw())
 
 	assert.Equal(t, expected.Payload, resp.Payload)
 	assert.Equal(t, expected.Type, expected.Type)

@@ -46,7 +46,7 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 	return &GameHub{
 		ID:               g.ID,
 		answers:          make(chan GameAnswer),
-		broadcast:        make(chan []byte, 1),
+		broadcast:        make(chan []byte, 256), //TODO unbuffered with goroutines?
 		clients:          make(map[*Client]bool),
 		commands:         make(chan GameLobbyCommand),
 		countdown:        questionCountdown,
@@ -54,9 +54,9 @@ func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadca
 		gameService:      gameService,
 		gameEnded:        g.GameEndedChan(),
 		hubBroadcast:     hubBroadcast,
-		register:         make(chan *Client),
+		register:         make(chan *Client, 5), //TODO unbuffered with goroutines?
 		questionDuration: questionDuration,
-		unregister:       make(chan *Client),
+		unregister:       make(chan *Client, 5), //TODO unbuffered with goroutines?
 	}
 }
 
@@ -69,17 +69,13 @@ func (g *GameHub) Run(ctx context.Context) {
 		case client := <-g.register:
 			g.clients[client] = true
 			client.gameHub = g
-			g.playerJoin(client)
-
-			g.gameService.SaveGame(g.game)
+			go g.playerJoin(client)
 		case client := <-g.unregister:
 			delete(g.clients, client)
+			go g.playerLeave(client)
 
-			g.playerLeave(client)
-
-			g.gameService.SaveGame(g.game)
-		// broadcasts message to all clients that are part of the GameHub
 		case message := <-g.broadcast:
+			// broadcasts message to all clients that are part of the GameHub
 			for client := range g.clients {
 				select {
 				case client.send <- message:
@@ -88,29 +84,29 @@ func (g *GameHub) Run(ctx context.Context) {
 					delete(g.clients, client)
 				}
 			}
-		// commands channel listens for lobby commands (Ready, Start, Leave) issued by player clients
+
 		case command := <-g.commands:
+			// commands channel listens for lobby commands (Ready, Start, Leave) issued by player clients
 			var event GameEvent
 			switch command.Type {
 			case PlayerCommandTypeReady:
 				event = newGameEventPlayerReady(command.payload.GameID, command.player)
+				g.game.PlayerReady(command.player)
+				go g.gameService.SaveGame(g.game)
 			case PlayerCommandTypeStart:
 				event = newGameEventStart(command.payload.GameID)
 
 				go g.runGame(done)
 			}
 			g.broadcast <- event.toBytes()
-		// case <-ctx.Done():
-		// 	g.gameEnded <- true
-		// 	log.Println("stopping GameHub Run()")
-		// 	return
+
 		case <-done:
 			log.Println("Expiring game")
 			err := g.gameService.ExpireGame(g.ID)
 			if err != nil {
-				log.Println("error expiring game ", err)
+				log.Printf("error expiring game %s. GameID=%s", err, g.game.ID)
 			}
-			log.Println("stopping GameHub Run()")
+			log.Printf("GameHub game (%s) completed.", g.game.ID)
 			return
 		}
 	}
@@ -120,6 +116,7 @@ func (g *GameHub) Run(ctx context.Context) {
 // GameEvents to be broadcast to the game lobby
 func (g *GameHub) playerJoin(client *Client) {
 	g.game.AddPlayer(client.name)
+	g.gameService.SaveGame(g.game)
 
 	enterEvent := newGameEventPlayerEnter(client.name, g.game)
 	client.send <- enterEvent.toBytes()
@@ -135,15 +132,17 @@ func (g *GameHub) playerJoin(client *Client) {
 // the client to the Hub
 func (g *GameHub) playerLeave(client *Client) {
 	g.game.RemovePlayer(client.name)
-
-	leaveEvent := newGameEventPlayerLeave(g.game.ID, client.name)
-	g.broadcast <- leaveEvent.toBytes()
+	g.gameService.SaveGame(g.game)
 
 	// re-register client to Hub to recieve updates on games
+
 	client.hub.register <- client
 
 	playerCountEvent := newGameEventPlayerCount(g.game.ID, g.game.PlayerCount)
 	g.hubBroadcast <- playerCountEvent
+
+	leaveEvent := newGameEventPlayerLeave(g.game.ID, client.name)
+	g.broadcast <- leaveEvent.toBytes()
 }
 
 // Runs the main trivia game loop. Listens for answers from client and handles

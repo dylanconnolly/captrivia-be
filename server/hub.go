@@ -29,15 +29,15 @@ type Hub struct {
 
 func NewHub(gs captrivia.GameService) *Hub {
 	return &Hub{
-		allBroadcast: make(chan []byte, 256),
+		allBroadcast: make(chan []byte, 20), //TODO unbuffered with goroutines?
 		clients:      make(map[*Client]bool),
 		clientNames:  make(map[string]bool),
 		disconnect:   make(chan *Client),
 		hubClients:   make(map[*Client]bool),
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
+		register:     make(chan *Client, 10), //TODO unbuffered with goroutines?
+		unregister:   make(chan *Client, 10), //TODO unbuffered with goroutines?
 
-		gameEvents:  make(chan GameEvent),
+		gameEvents:  make(chan GameEvent, 15), //TODO unbuffered with goroutines?
 		gameHubs:    make(map[uuid.UUID]*GameHub),
 		GameService: gs,
 	}
@@ -74,12 +74,17 @@ func (h *Hub) Run(ctx context.Context) {
 				}
 			}
 		case client := <-h.disconnect:
+			log.Printf("CLIENT IN DISCONNECT: %+v", client)
+			if client.gameHub != nil {
+				client.gameHub.unregister <- client
+			}
 			delete(h.clients, client)
 			delete(h.hubClients, client)
 			delete(h.clientNames, client.name)
 			if _, ok := <-client.send; ok {
 				close(client.send)
 			}
+			log.Printf("CLIENT AT END OF DISCONNECT: %+v", client)
 		case <-ctx.Done():
 			log.Println("stopping Hub goroutine")
 			return

@@ -2,6 +2,7 @@ package captrivia_test
 
 import (
 	"encoding/json"
+	"log"
 	"testing"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
@@ -14,7 +15,11 @@ const (
 )
 
 func CreateTestGame() captrivia.Game {
-	g, _ := captrivia.NewGame(gameName, questionCount)
+	g, err := captrivia.NewGame(gameName, questionCount)
+	if err != nil {
+		log.Println("couldn't load questions for test game")
+		return captrivia.Game{}
+	}
 	return *g
 }
 
