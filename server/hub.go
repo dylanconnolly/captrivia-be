@@ -22,9 +22,9 @@ type Hub struct {
 	unregister   chan *Client
 
 	// game fields
-	GameService captrivia.GameService
-	gameHubs    map[uuid.UUID]*GameHub
-	gameEvents  chan GameEvent // used to broadcast GameEvents to clients not in games (GameCreate, GameStateChange, GamePlayerCountChange)
+	GameService  captrivia.GameService
+	gameHubs     map[uuid.UUID]*GameHub
+	hubBroadcast chan GameEvent // used to broadcast GameEvents to clients not in games (GameCreate, GameStateChange, GamePlayerCountChange)
 }
 
 func NewHub(gs captrivia.GameService) *Hub {
@@ -37,9 +37,9 @@ func NewHub(gs captrivia.GameService) *Hub {
 		register:     make(chan *Client, 10), //TODO unbuffered with goroutines?
 		unregister:   make(chan *Client, 10), //TODO unbuffered with goroutines?
 
-		gameEvents:  make(chan GameEvent, 15), //TODO unbuffered with goroutines?
-		gameHubs:    make(map[uuid.UUID]*GameHub),
-		GameService: gs,
+		GameService:  gs,
+		gameHubs:     make(map[uuid.UUID]*GameHub),
+		hubBroadcast: make(chan GameEvent, 15), //TODO unbuffered with goroutines?
 	}
 }
 
@@ -57,14 +57,13 @@ func (h *Hub) Run(ctx context.Context) {
 			for client := range h.clients {
 				select {
 				case client.send <- message:
-					log.Printf("all broadcast message: %s", message)
 				default:
 					close(client.send)
 					delete(h.clients, client)
 				}
 			}
 		// send game state changes to clients which are not actively in a game
-		case event := <-h.gameEvents:
+		case event := <-h.hubBroadcast:
 			for client := range h.hubClients {
 				select {
 				case client.send <- event.toBytes():
@@ -74,19 +73,15 @@ func (h *Hub) Run(ctx context.Context) {
 				}
 			}
 		case client := <-h.disconnect:
-			log.Printf("CLIENT IN DISCONNECT: %+v", client)
 			if client.gameHub != nil {
-				client.gameHub.unregister <- client
+				client.gameHub.playerLeave(client)
 			}
 			delete(h.clients, client)
 			delete(h.hubClients, client)
 			delete(h.clientNames, client.name)
-			if _, ok := <-client.send; ok {
-				close(client.send)
-			}
-			log.Printf("CLIENT AT END OF DISCONNECT: %+v", client)
+			close(client.send)
 		case <-ctx.Done():
-			log.Println("stopping Hub goroutine")
+			log.Println("stopping Hub goroutine.")
 			return
 		}
 	}
@@ -97,12 +92,11 @@ func (h *Hub) NewGameHub(name string, questionCount int) (*GameHub, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating game for game hub: %s", err)
 	}
-	gh := NewGameHub(game, h.GameService, h.gameEvents)
+	gh := NewGameHub(game, h.GameService, h.hubBroadcast)
 	h.gameHubs[gh.ID] = gh
 
 	ge := newGameEventCreate(game.ID, game.Name, game.QuestionCount)
-	h.gameEvents <- ge
-	log.Printf("got create command")
+	h.hubBroadcast <- ge
 	return gh, nil
 }
 

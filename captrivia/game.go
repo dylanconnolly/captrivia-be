@@ -30,6 +30,7 @@ type Game struct {
 	questions            []Question
 	scores               map[string]int
 	gameEnded            chan bool
+	// mu                   sync.Mutex
 }
 
 type PlayerScore struct {

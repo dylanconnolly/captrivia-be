@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	gameEndExpiry       time.Duration = (time.Duration(5) * time.Minute)
+	EndedGameTTL        time.Duration = (time.Duration(1) * time.Minute)
 	gameKey             string        = "game:%s"
 	gamePlayersKey      string        = "game:%s:players"
 	gamePlayersReadyKey string        = "game:%s:players:ready"

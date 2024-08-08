@@ -88,5 +88,5 @@ func (s *GameService) GetGames() ([]captrivia.RepositoryGame, error) {
 
 func (s *GameService) ExpireGame(gameID uuid.UUID) error {
 	key := fmt.Sprintf(gameKey, gameID)
-	return s.rdb.Expire(ctx, key, gameEndExpiry).Err()
+	return s.rdb.Expire(ctx, key, EndedGameTTL).Err()
 }

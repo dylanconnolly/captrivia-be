@@ -232,19 +232,18 @@ func (c *Client) handlePlayerAnswer(payload PlayerCommandAnswer) {
 
 func (c *Client) writeMessage() {
 	defer c.conn.Close()
-	for {
-		select {
-		case message, ok := <-c.send:
-			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-			err := c.conn.WriteMessage(websocket.TextMessage, message)
-			if err != nil {
-				log.Printf("error writing message to websocket: ERROR=%s. MESSAGE=%s, CLIENT=%+v\n", err, message, c)
-			}
+	for message := range c.send {
+		// if !ok {
+		// 	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+		// 	return
+		// }
+		err := c.conn.WriteMessage(websocket.TextMessage, message)
+		if err != nil {
+			log.Printf("error writing message to websocket: ERROR=%s. MESSAGE=%s, CLIENT=%+v\n", err, message, c)
 		}
 	}
+
+	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 }
 
 // upgrades connection to websocket on client and registers client with client Hub

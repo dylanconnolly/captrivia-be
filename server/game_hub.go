@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dylanconnolly/captrivia-be/captrivia"
+	"github.com/dylanconnolly/captrivia-be/redis"
 	"github.com/google/uuid"
 )
 
@@ -21,11 +22,12 @@ const (
 )
 
 type GameHub struct {
-	ID               uuid.UUID
-	broadcast        chan []byte
-	clients          map[*Client]bool
-	commands         chan GameLobbyCommand
-	countdown        int
+	ID        uuid.UUID
+	broadcast chan []byte
+	clients   map[*Client]bool
+	commands  chan GameLobbyCommand
+	countdown int
+	// disconnects      chan *Client
 	game             *captrivia.Game
 	gameService      captrivia.GameService
 	gameEnded        <-chan bool
@@ -44,12 +46,13 @@ type GameAnswer struct {
 
 func NewGameHub(g *captrivia.Game, gameService captrivia.GameService, hubBroadcast chan<- GameEvent) *GameHub {
 	return &GameHub{
-		ID:               g.ID,
-		answers:          make(chan GameAnswer),
-		broadcast:        make(chan []byte, 256), //TODO unbuffered with goroutines?
-		clients:          make(map[*Client]bool),
-		commands:         make(chan GameLobbyCommand),
-		countdown:        questionCountdown,
+		ID:        g.ID,
+		answers:   make(chan GameAnswer),
+		broadcast: make(chan []byte, 256), //TODO unbuffered with goroutines?
+		clients:   make(map[*Client]bool),
+		commands:  make(chan GameLobbyCommand),
+		countdown: questionCountdown,
+		// disconnects:      make(chan *Client),
 		game:             g,
 		gameService:      gameService,
 		gameEnded:        g.GameEndedChan(),
@@ -71,9 +74,7 @@ func (g *GameHub) Run(ctx context.Context) {
 			client.gameHub = g
 			go g.playerJoin(client)
 		case client := <-g.unregister:
-			delete(g.clients, client)
 			go g.playerLeave(client)
-
 		case message := <-g.broadcast:
 			// broadcasts message to all clients that are part of the GameHub
 			for client := range g.clients {
@@ -101,12 +102,19 @@ func (g *GameHub) Run(ctx context.Context) {
 			g.broadcast <- event.toBytes()
 
 		case <-done:
-			log.Println("Expiring game")
+			log.Printf("Setting game TTL in Redis to %d minutes", redis.EndedGameTTL)
 			err := g.gameService.ExpireGame(g.ID)
+
 			if err != nil {
 				log.Printf("error expiring game %s. GameID=%s", err, g.game.ID)
 			}
 			log.Printf("GameHub game (%s) completed.", g.game.ID)
+
+			// re-register clients with Hub to recieve game creation/state updates and remove from GameHub clients
+			for client := range g.clients {
+				client.hub.register <- client
+				delete(g.clients, client)
+			}
 			return
 		}
 	}
@@ -121,6 +129,9 @@ func (g *GameHub) playerJoin(client *Client) {
 	enterEvent := newGameEventPlayerEnter(client.name, g.game)
 	client.send <- enterEvent.toBytes()
 
+	// unregister player from hub broadcasts
+	client.hub.unregister <- client
+
 	joinEvent := newGameEventPlayerJoin(g.game.ID, client.name)
 	g.broadcast <- joinEvent.toBytes()
 
@@ -131,12 +142,9 @@ func (g *GameHub) playerJoin(client *Client) {
 // Helper function to remove a player from GameHub + Game, and re-register
 // the client to the Hub
 func (g *GameHub) playerLeave(client *Client) {
+	delete(g.clients, client)
 	g.game.RemovePlayer(client.name)
 	g.gameService.SaveGame(g.game)
-
-	// re-register client to Hub to recieve updates on games
-
-	client.hub.register <- client
 
 	playerCountEvent := newGameEventPlayerCount(g.game.ID, g.game.PlayerCount)
 	g.hubBroadcast <- playerCountEvent
