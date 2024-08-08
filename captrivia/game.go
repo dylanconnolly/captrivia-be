@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
@@ -111,10 +110,7 @@ func newGame(name string, qCount int) *Game {
 func NewGame(name string, qCount int) (*Game, error) {
 	game := newGame(name, qCount)
 
-	wd, _ := os.Getwd()
-	wd = filepath.Dir(wd)
-	// filePath := fmt.Sprintf("%s/captrivia-be/questions.json", wd)
-	filePath := fmt.Sprintf("%s/questions.json", wd)
+	filePath := os.Getenv("QUESTIONS_FILE_PATH")
 
 	log.Println("filepath: ", filePath)
 

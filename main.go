@@ -77,6 +77,10 @@ func NewConfig() Config {
 	if qd == "" {
 		qd = "5"
 	}
+	questions_path := os.Getenv("QUESTIONS_FILE_PATH")
+	if questions_path == "" {
+		log.Fatal("QUESTIONS_FILE_PATH env variable not found. Please provide full path to questions.json")
+	}
 
 	ttlInt, err := strconv.Atoi(ttl)
 	if err != nil {

@@ -9,5 +9,12 @@ likely have significantly faster compilation times).  Just build & run with the 
 
 ```bash
 docker build . --tag captrivia-be
-docker run -it --publish "8080:8080" --mount "type=bind,source=${PWD},target=/app" captrivia-be
+docker compose-up -d
+```
+
+or if you want to run the backend locally
+```bash
+export QUESTIONS_FILE_PATH="/full_path/to/file/questions.json"
+docker compose up fe redis
+go run main.go
 ```

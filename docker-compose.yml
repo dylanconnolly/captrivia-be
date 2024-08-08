@@ -16,6 +16,7 @@ services:
       REDIS_TTL_SEC: 300
       COUNTDOWN_DURATION_SEC: 5
       QUESTION_DURATION_SEC: 10
+      QUESTIONS_FILE_PATH: "/app/questions.json"
 
   redis:
     image: redis:7.4.0-alpine
